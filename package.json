@@ -1,0 +1,29 @@
+{
+  "name": "trading-metrics-app",
+  "version": "1.0.0",
+  "description": "Professional trading metrics tracker with behavioral analytics",
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "build:frontend": "cd frontend && npm run build",
+    "start:backend": "cd backend && npm start",
+    "start": "cd backend && npm start",
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "deploy:render": "echo 'Push to GitHub and connect to Render'",
+    "deploy:railway": "railway up",
+    "deploy:vercel": "cd frontend && vercel --prod"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": [
+    "trading",
+    "metrics", 
+    "analytics",
+    "react",
+    "node.js",
+    "responsive"
+  ],
+  "author": "Generated with Claude Code",
+  "license": "MIT"
+}
