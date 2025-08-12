@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Metrics App - Test</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #4f46e5; text-align: center; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+        }
+        button:hover { background: #4338ca; }
+        .status { margin: 20px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #dcfce7; color: #166534; }
+        .error { background: #fef2f2; color: #dc2626; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Trading Metrics App</h1>
+        <p>Your intraday trading performance tracker is ready!</p>
+        
+        <button onclick="testBackend()">Test Backend Connection</button>
+        <button onclick="openApp()">Launch Full App</button>
+        
+        <div id="status"></div>
+        
+        <h3>Quick Start:</h3>
+        <ol>
+            <li>Click "Test Backend Connection" to verify API</li>
+            <li>Click "Launch Full App" to open the React application</li>
+            <li>Register a new account</li>
+            <li>Start logging your trades!</li>
+        </ol>
+    </div>
+
+    <script>
+        async function testBackend() {
+            const status = document.getElementById('status');
+            status.innerHTML = 'Testing backend...';
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/trades');
+                if (response.status === 401) {
+                    status.innerHTML = '<div class="success">✅ Backend is running correctly!<br>Authentication required (expected)</div>';
+                } else {
+                    status.innerHTML = '<div class="error">❌ Unexpected response from backend</div>';
+                }
+            } catch (error) {
+                status.innerHTML = '<div class="error">❌ Cannot connect to backend<br>Make sure server is running on port 3001</div>';
+            }
+        }
+        
+        function openApp() {
+            // Try multiple possible URLs
+            const urls = [
+                'http://localhost:5173',
+                'http://localhost:3000',
+                'http://127.0.0.1:5173',
+                'http://127.0.0.1:3000'
+            ];
+            
+            urls.forEach(url => {
+                window.open(url, '_blank');
+            });
+        }
+    </script>
+</body>
+</html>
