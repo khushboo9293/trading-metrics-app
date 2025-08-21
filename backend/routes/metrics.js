@@ -30,15 +30,53 @@ router.get('/summary', authenticateToken, async (req, res) => {
     await db.init();
     const database = db.getDb();
     
-    const { period = '7' } = req.query;
-    const days = parseInt(period);
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    const { period = 'current-month' } = req.query;
+    let startDate, endDate;
     
-    const trades = await database.all(
-      'SELECT * FROM trades WHERE user_id = ? AND trade_date >= ? ORDER BY trade_date DESC',
-      [req.userId, startDate.toISOString().split('T')[0]]
-    );
+    if (period === 'today') {
+      // Get today's date in YYYY-MM-DD format to avoid timezone issues
+      const today = new Date();
+      const todayStr = today.getFullYear() + '-' + 
+        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(today.getDate()).padStart(2, '0');
+      
+      // Use the same date for both start and end for "today"
+      startDate = new Date(todayStr + 'T00:00:00');
+      endDate = new Date(todayStr + 'T23:59:59');
+    } else if (period === 'current-month') {
+      const now = new Date();
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else if (period === 'last-month') {
+      const now = new Date();
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    } else if (period === 'two-months-ago') {
+      const now = new Date();
+      startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() - 1, 0, 23, 59, 59, 999);
+    } else {
+      // Handle numeric days (like "15")
+      const days = parseInt(period);
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      endDate = new Date();
+    }
+    
+    let trades;
+    if (period === 'today') {
+      // For today, get current date string directly to avoid timezone issues
+      const todayStr = new Date().toISOString().split('T')[0];
+      trades = await database.all(
+        'SELECT * FROM trades WHERE user_id = ? AND trade_date = ? ORDER BY trade_date DESC',
+        [req.userId, todayStr]
+      );
+    } else {
+      trades = await database.all(
+        'SELECT * FROM trades WHERE user_id = ? AND trade_date >= ? AND trade_date <= ? ORDER BY trade_date DESC',
+        [req.userId, startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]
+      );
+    }
     
     const totalTrades = trades.length;
     const winningTrades = trades.filter(t => t.pnl > 0).length;
@@ -115,31 +153,310 @@ router.get('/performance-trend', authenticateToken, async (req, res) => {
     await db.init();
     const database = db.getDb();
     
-    const { period = '30' } = req.query;
-    const days = parseInt(period);
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    const { period = 'current-month' } = req.query;
+    let startDate, endDate;
     
-    const dailyMetrics = await database.all(
-      'SELECT * FROM daily_metrics WHERE user_id = ? AND date >= ? ORDER BY date ASC',
-      [req.userId, startDate.toISOString().split('T')[0]]
-    );
+    if (period === 'today') {
+      // Get today's date in YYYY-MM-DD format to avoid timezone issues
+      const today = new Date();
+      const todayStr = today.getFullYear() + '-' + 
+        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(today.getDate()).padStart(2, '0');
+      
+      // Use the same date for both start and end for "today"
+      startDate = new Date(todayStr + 'T00:00:00');
+      endDate = new Date(todayStr + 'T23:59:59');
+    } else if (period === 'current-month') {
+      const now = new Date();
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    } else if (period === 'last-month') {
+      const now = new Date();
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    } else if (period === 'two-months-ago') {
+      const now = new Date();
+      startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() - 1, 0, 23, 59, 59, 999);
+    } else {
+      const days = parseInt(period);
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      endDate = new Date();
+    }
+    
+    let dailyMetrics;
+    if (period === 'today') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      dailyMetrics = await database.all(
+        'SELECT * FROM daily_metrics WHERE user_id = ? AND date = ? ORDER BY date ASC',
+        [req.userId, todayStr]
+      );
+    } else {
+      dailyMetrics = await database.all(
+        'SELECT * FROM daily_metrics WHERE user_id = ? AND date >= ? AND date <= ? ORDER BY date ASC',
+        [req.userId, startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]
+      );
+    }
+    
+    // Get daily trades to calculate winners and losers R-Multiple
+    let dailyTrades;
+    if (period === 'today') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      dailyTrades = await database.all(
+        `SELECT DATE(trade_date) as date, 
+                AVG(CASE WHEN pnl > 0 THEN r_multiple END) as winners_r_multiple,
+                AVG(CASE WHEN pnl <= 0 THEN r_multiple END) as losers_r_multiple
+         FROM trades 
+         WHERE user_id = ? AND trade_date = ?
+         GROUP BY DATE(trade_date)
+         ORDER BY date ASC`,
+        [req.userId, todayStr]
+      );
+    } else {
+      dailyTrades = await database.all(
+        `SELECT DATE(trade_date) as date, 
+                AVG(CASE WHEN pnl > 0 THEN r_multiple END) as winners_r_multiple,
+                AVG(CASE WHEN pnl <= 0 THEN r_multiple END) as losers_r_multiple
+         FROM trades 
+         WHERE user_id = ? AND trade_date >= ? AND trade_date <= ?
+         GROUP BY DATE(trade_date)
+         ORDER BY date ASC`,
+        [req.userId, startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]
+      );
+    }
+    
+    // Create a map for easy lookup
+    const tradesMap = {};
+    dailyTrades.forEach(day => {
+      tradesMap[day.date] = {
+        winnersRMultiple: day.winners_r_multiple || 0,
+        losersRMultiple: day.losers_r_multiple || 0
+      };
+    });
     
     let cumulativePnl = 0;
     const equityCurve = dailyMetrics.map(day => {
       cumulativePnl += day.total_pnl;
+      const tradeData = tradesMap[day.date] || { winnersRMultiple: 0, losersRMultiple: 0 };
       return {
         date: day.date,
         pnl: day.total_pnl,
         cumulativePnl,
         winRate: day.win_rate,
-        avgRMultiple: day.avg_r_multiple
+        avgRMultiple: day.avg_r_multiple,
+        winnersRMultiple: tradeData.winnersRMultiple,
+        losersRMultiple: tradeData.losersRMultiple
       };
     });
     
     res.json(equityCurve);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch performance trend' });
+  }
+});
+
+router.get('/weekly-r-multiple', authenticateToken, async (req, res) => {
+  try {
+    const db = new Database();
+    await db.init();
+    const database = db.getDb();
+    
+    // Get last 12 weeks of data
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - (12 * 7));
+    
+    const trades = await database.all(
+      `SELECT * FROM trades 
+       WHERE user_id = ? AND trade_date >= ? 
+       ORDER BY trade_date ASC`,
+      [req.userId, startDate.toISOString().split('T')[0]]
+    );
+    
+    // Group trades by week
+    const weeklyData = {};
+    trades.forEach(trade => {
+      const tradeDate = new Date(trade.trade_date);
+      const startOfWeek = new Date(tradeDate);
+      startOfWeek.setDate(tradeDate.getDate() - tradeDate.getDay()); // Start of week (Sunday)
+      const weekKey = startOfWeek.toISOString().split('T')[0];
+      
+      if (!weeklyData[weekKey]) {
+        weeklyData[weekKey] = {
+          week: weekKey,
+          allTrades: [],
+          winningTrades: [],
+          losingTrades: []
+        };
+      }
+      
+      weeklyData[weekKey].allTrades.push(trade);
+      if (trade.pnl > 0) {
+        weeklyData[weekKey].winningTrades.push(trade);
+      } else {
+        weeklyData[weekKey].losingTrades.push(trade);
+      }
+    });
+    
+    // Calculate weekly averages
+    const weeklyRMultiples = Object.values(weeklyData).map(week => {
+      const avgAll = week.allTrades.length > 0 
+        ? week.allTrades.reduce((sum, t) => sum + (t.r_multiple || 0), 0) / week.allTrades.length 
+        : 0;
+      
+      const avgWinners = week.winningTrades.length > 0 
+        ? week.winningTrades.reduce((sum, t) => sum + (t.r_multiple || 0), 0) / week.winningTrades.length 
+        : 0;
+      
+      const avgLosers = week.losingTrades.length > 0 
+        ? week.losingTrades.reduce((sum, t) => sum + (t.r_multiple || 0), 0) / week.losingTrades.length 
+        : 0;
+      
+      return {
+        week: week.week,
+        weekLabel: new Date(week.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        avgRMultiple: avgAll,
+        avgWinnersRMultiple: avgWinners,
+        avgLosersRMultiple: avgLosers,
+        totalTrades: week.allTrades.length,
+        winningTrades: week.winningTrades.length,
+        losingTrades: week.losingTrades.length
+      };
+    }).filter(week => week.totalTrades > 0); // Only include weeks with trades
+    
+    res.json(weeklyRMultiples);
+  } catch (error) {
+    console.error('Error fetching weekly R-Multiple data:', error);
+    res.status(500).json({ error: 'Failed to fetch weekly R-Multiple data' });
+  }
+});
+
+router.get('/plan-deviation-analysis', authenticateToken, async (req, res) => {
+  try {
+    const db = new Database();
+    await db.init();
+    const database = db.getDb();
+    
+    // Get trades where plan was not followed
+    const deviationTrades = await database.all(
+      `SELECT mistakes FROM trades 
+       WHERE user_id = ? AND followed_plan = 0 AND mistakes IS NOT NULL AND mistakes != ''`,
+      [req.userId]
+    );
+    
+    // Parse and categorize mistakes
+    const mistakeFrequency = {};
+    
+    deviationTrades.forEach(trade => {
+      if (trade.mistakes) {
+        // Split mistakes by comma and trim whitespace
+        const mistakes = trade.mistakes.split(',').map(m => m.trim().toLowerCase());
+        
+        mistakes.forEach(mistake => {
+          if (mistake) {
+            mistakeFrequency[mistake] = (mistakeFrequency[mistake] || 0) + 1;
+          }
+        });
+      }
+    });
+    
+    // Convert to array and sort by frequency
+    const sortedMistakes = Object.entries(mistakeFrequency)
+      .map(([mistake, count]) => ({
+        mistake: mistake,
+        count: count,
+        percentage: ((count / deviationTrades.length) * 100).toFixed(1)
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5); // Top 5 deviations
+    
+    res.json({
+      totalDeviationTrades: deviationTrades.length,
+      topDeviations: sortedMistakes
+    });
+  } catch (error) {
+    console.error('Error fetching plan deviation analysis:', error);
+    res.status(500).json({ error: 'Failed to fetch plan deviation analysis' });
+  }
+});
+
+// Populate default tags
+router.post('/populate-tags', authenticateToken, async (req, res) => {
+  try {
+    const db = new Database();
+    await db.init();
+    const database = db.getDb();
+    
+    const defaultTags = [
+      // Entry Mistakes
+      { tag_name: 'fomo-entry', category: 'entry', description: 'Fear of missing out entry' },
+      { tag_name: 'impulse-entry', category: 'entry', description: 'Impulsive entry without proper setup' },
+      { tag_name: 'chasing-breakout', category: 'entry', description: 'Chasing price after breakout' },
+      { tag_name: 'no-setup-entry', category: 'entry', description: 'Entry without proper setup' },
+      { tag_name: 'poor-entry-level', category: 'entry', description: 'Entered near resistance/support level' },
+      { tag_name: 'poor-entry-timing', category: 'entry', description: 'Entry timing too early/late' },
+      { tag_name: 'contrarian-entry', category: 'entry', description: 'Entry against the trend' },
+      
+      // Exit Mistakes
+      { tag_name: 'early-exit', category: 'exit', description: 'Exited too early before target' },
+      { tag_name: 'late-exit', category: 'exit', description: 'Exited too late after reversal' },
+      { tag_name: 'moved-stop-loss', category: 'exit', description: 'Moved stop loss against position' },
+      { tag_name: 'no-stop-loss', category: 'exit', description: 'Traded without stop loss' },
+      { tag_name: 'poor-target', category: 'exit', description: 'Target too small/large for setup' },
+      { tag_name: 'emotional-exit', category: 'exit', description: 'Exited based on emotions/panic' },
+      
+      // Position Management
+      { tag_name: 'poor-position-size', category: 'position', description: 'Position size too large/small' },
+      { tag_name: 'averaging-mistake', category: 'position', description: 'Averaged down/up incorrectly' },
+      { tag_name: 'poor-stop-placement', category: 'position', description: 'Stop too tight/wide for volatility' },
+      
+      // Psychology/Emotion
+      { tag_name: 'fear-driven', category: 'psychology', description: 'Decision driven by fear' },
+      { tag_name: 'greed-driven', category: 'psychology', description: 'Decision driven by greed' },
+      { tag_name: 'overconfident', category: 'psychology', description: 'Overconfident in trade setup' },
+      { tag_name: 'revenge-mode', category: 'psychology', description: 'Trading to recover losses' },
+      { tag_name: 'tilted', category: 'psychology', description: 'Emotional and irrational trading' },
+      { tag_name: 'impatient', category: 'psychology', description: 'Impatient with trade execution' },
+      
+      // Plan Deviation
+      { tag_name: 'ignored-plan', category: 'plan', description: 'Ignored predetermined trading plan' },
+      { tag_name: 'changed-plan-mid-trade', category: 'plan', description: 'Changed plan during trade' },
+      { tag_name: 'no-plan', category: 'plan', description: 'Traded without a plan' },
+      { tag_name: 'rushed-decision', category: 'plan', description: 'Made rushed trading decision' },
+      
+      // Risk Management
+      { tag_name: 'poor-risk-sizing', category: 'risk', description: 'Risk too high/low for account' },
+      { tag_name: 'no-risk-calculation', category: 'risk', description: 'No proper risk calculation done' },
+      { tag_name: 'violated-risk-rules', category: 'risk', description: 'Violated risk management rules' }
+    ];
+    
+    // Insert tags (ignore duplicates)
+    for (const tag of defaultTags) {
+      await database.run(
+        'INSERT OR IGNORE INTO mistake_tags (tag_name, category, description) VALUES (?, ?, ?)',
+        [tag.tag_name, tag.category, tag.description]
+      );
+    }
+    
+    res.json({ message: 'Tags populated successfully', count: defaultTags.length });
+  } catch (error) {
+    console.error('Error populating tags:', error);
+    res.status(500).json({ error: 'Failed to populate tags' });
+  }
+});
+
+// Get all tags for autocomplete
+router.get('/tags', authenticateToken, async (req, res) => {
+  try {
+    const db = new Database();
+    await db.init();
+    const database = db.getDb();
+    
+    const tags = await database.all('SELECT * FROM mistake_tags ORDER BY tag_name ASC');
+    res.json(tags);
+  } catch (error) {
+    console.error('Error fetching tags:', error);
+    res.status(500).json({ error: 'Failed to fetch tags' });
   }
 });
 

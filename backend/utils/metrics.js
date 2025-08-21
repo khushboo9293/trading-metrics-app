@@ -25,33 +25,8 @@ export function calculateMetrics({ entry_price, exit_price, stop_loss, quantity 
 }
 
 export function analyzeEmotionalBias(trades) {
-  const emotionGroups = {};
-  
-  trades.forEach(trade => {
-    if (trade.emotional_state) {
-      if (!emotionGroups[trade.emotional_state]) {
-        emotionGroups[trade.emotional_state] = {
-          trades: [],
-          totalPnl: 0,
-          count: 0
-        };
-      }
-      emotionGroups[trade.emotional_state].trades.push(trade);
-      emotionGroups[trade.emotional_state].totalPnl += trade.pnl;
-      emotionGroups[trade.emotional_state].count++;
-    }
-  });
-  
-  const analysis = {};
-  Object.keys(emotionGroups).forEach(emotion => {
-    analysis[emotion] = {
-      avgPnl: emotionGroups[emotion].totalPnl / emotionGroups[emotion].count,
-      count: emotionGroups[emotion].count,
-      winRate: (emotionGroups[emotion].trades.filter(t => t.pnl > 0).length / emotionGroups[emotion].count) * 100
-    };
-  });
-  
-  return analysis;
+  // Emotional bias analysis removed - return empty object
+  return {};
 }
 
 export function analyzeBreakoutTypes(trades) {

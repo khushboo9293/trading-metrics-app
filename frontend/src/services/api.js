@@ -2,7 +2,7 @@ import axios from 'axios';
 import { demoUser, demoTrades, demoMetrics } from './demoData.js';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true' || import.meta.env.PROD;
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 
 // Demo API responses
 const demoResponses = {

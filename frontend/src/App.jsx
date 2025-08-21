@@ -8,6 +8,7 @@ import TradeLogs from './pages/TradeLogs';
 import AddTrade from './pages/AddTrade';
 import EditTrade from './pages/EditTrade';
 import Insights from './pages/Insights';
+import MistakeGuide from './pages/MistakeGuide';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -69,6 +70,7 @@ function App() {
                 <Route path="/add-trade" element={<AddTrade />} />
                 <Route path="/edit-trade/:id" element={<EditTrade />} />
                 <Route path="/insights" element={<Insights />} />
+                <Route path="/mistake-guide" element={<MistakeGuide />} />
               </Route>
             </Route>
           </Routes>

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Line, Doughnut } from 'react-chartjs-2';
+import { Line, Doughnut, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
@@ -25,13 +26,14 @@ import {
 } from '@ant-design/icons';
 import api from '../services/api';
 
-const { Title: AntTitle, Text } = Typography;
+const { Title: AntTitle, Text, Paragraph } = Typography;
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
@@ -42,10 +44,22 @@ const Dashboard = () => {
   const [summary, setSummary] = useState(null);
   const [trend, setTrend] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState('7');
+  const [period, setPeriod] = useState('current-month');
+  
+  // Get current month names for dropdown
+  const currentDate = new Date();
+  const currentMonthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1);
+  const lastMonthName = lastMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+  const twoMonthsAgo = new Date(currentDate.getFullYear(), currentDate.getMonth() - 2);
+  const twoMonthsAgoName = twoMonthsAgo.toLocaleString('default', { month: 'long', year: 'numeric' });
   const [pnlModalVisible, setPnlModalVisible] = useState(false);
   const [winRateModalVisible, setWinRateModalVisible] = useState(false);
   const [rMultipleModalVisible, setRMultipleModalVisible] = useState(false);
+  const [weeklyRMultipleData, setWeeklyRMultipleData] = useState([]);
+  const [weeklyRMultipleVisible, setWeeklyRMultipleVisible] = useState(false);
+  const [planFollowModalVisible, setPlanFollowModalVisible] = useState(false);
+  const [deviationData, setDeviationData] = useState({ totalDeviationTrades: 0, topDeviations: [] });
 
   useEffect(() => {
     fetchData();
@@ -64,6 +78,16 @@ const Dashboard = () => {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWeeklyRMultipleData = async () => {
+    try {
+      const response = await api.get('/metrics/weekly-r-multiple');
+      setWeeklyRMultipleData(response.data);
+      setWeeklyRMultipleVisible(true);
+    } catch (error) {
+      console.error('Error fetching weekly R-Multiple data:', error);
     }
   };
 
@@ -92,13 +116,30 @@ const Dashboard = () => {
     ]
   };
 
-  const callPutChartData = {
-    labels: ['Calls', 'Puts'],
+  const rMultipleChartData = {
+    labels: trend.map(t => new Date(t.date).toLocaleDateString()),
     datasets: [
       {
-        data: [summary.callPutRatio.calls, summary.callPutRatio.puts],
-        backgroundColor: ['rgba(34, 197, 94, 0.8)', 'rgba(239, 68, 68, 0.8)'],
-        borderWidth: 1
+        label: 'Winners R-Multiple',
+        data: trend.map(t => t.winnersRMultiple || 0),
+        borderColor: 'rgb(34, 197, 94)',
+        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+        borderWidth: 2,
+        tension: 0.3,
+        fill: false,
+        pointRadius: 3,
+        pointBackgroundColor: 'rgb(34, 197, 94)'
+      },
+      {
+        label: 'Losers R-Multiple',
+        data: trend.map(t => t.losersRMultiple || 0),
+        borderColor: 'rgb(239, 68, 68)',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderWidth: 2,
+        tension: 0.3,
+        fill: false,
+        pointRadius: 3,
+        pointBackgroundColor: 'rgb(239, 68, 68)'
       }
     ]
   };
@@ -128,10 +169,11 @@ const Dashboard = () => {
             style={{ width: 150 }}
             size="large"
           >
-            <Select.Option value="7">Last 7 days</Select.Option>
-            <Select.Option value="30">Last 30 days</Select.Option>
-            <Select.Option value="90">Last 90 days</Select.Option>
-            <Select.Option value="365">All time</Select.Option>
+            <Select.Option value="today">Today</Select.Option>
+            <Select.Option value="15">Last 15 days</Select.Option>
+            <Select.Option value="current-month">{currentMonthName}</Select.Option>
+            <Select.Option value="last-month">{lastMonthName}</Select.Option>
+            <Select.Option value="two-months-ago">{twoMonthsAgoName}</Select.Option>
           </Select>
         </Space>
       </Row>
@@ -231,7 +273,7 @@ const Dashboard = () => {
         <Col xs={12} sm={12} md={6} lg={6}>
           <Card 
             hoverable 
-            onClick={() => setRMultipleModalVisible(true)}
+            onClick={fetchWeeklyRMultipleData}
             style={{ 
               cursor: 'pointer', 
               height: '100%',
@@ -283,7 +325,32 @@ const Dashboard = () => {
 
         {/* Plan Follow Rate - Circular Progress with Color */}
         <Col xs={12} sm={12} md={6} lg={6}>
-          <Card style={{ height: '100%' }}>
+          <Card 
+            hoverable
+            onClick={async () => {
+              try {
+                const response = await api.get('/metrics/plan-deviation-analysis');
+                setDeviationData(response.data);
+                setPlanFollowModalVisible(true);
+              } catch (error) {
+                console.error('Error fetching deviation data:', error);
+                setPlanFollowModalVisible(true); // Still show modal even if deviation data fails
+              }
+            }}
+            style={{ 
+              height: '100%', 
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0px)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
             <div style={{ textAlign: 'center' }}>
               <Text type="secondary">Plan Follow Rate</Text>
               <Progress
@@ -399,16 +466,54 @@ const Dashboard = () => {
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title="Call/Put Distribution">
+          <Card title="Winners vs Losers R-Multiple">
             <div style={{ height: window.innerWidth < 768 ? '250px' : '300px' }}>
-              <Doughnut 
-                data={callPutChartData} 
+              <Line 
+                data={rMultipleChartData} 
                 options={{ 
                   responsive: true, 
                   maintainAspectRatio: false,
+                  interaction: {
+                    mode: 'index',
+                    intersect: false
+                  },
                   plugins: {
                     legend: {
-                      position: window.innerWidth < 768 ? 'bottom' : 'right'
+                      display: true,
+                      position: 'top',
+                      labels: {
+                        usePointStyle: true,
+                        boxWidth: 6
+                      }
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: (context) => {
+                          const value = context.parsed.y;
+                          const label = context.dataset.label;
+                          return `${label}: ${value >= 0 ? '+' : ''}${value.toFixed(2)}R`;
+                        }
+                      }
+                    }
+                  },
+                  scales: {
+                    y: {
+                      grid: {
+                        color: (context) => {
+                          if (context.tick.value === 0) {
+                            return 'rgba(255, 255, 255, 0.3)';
+                          }
+                          return 'rgba(255, 255, 255, 0.1)';
+                        }
+                      },
+                      ticks: {
+                        callback: (value) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}R`
+                      }
+                    },
+                    x: {
+                      ticks: {
+                        maxTicksLimit: window.innerWidth < 768 ? 4 : 8
+                      }
                     }
                   }
                 }} 
@@ -797,28 +902,602 @@ const Dashboard = () => {
 
       {/* Additional Analysis Sections */}
       {summary.mistakePatterns && summary.mistakePatterns.length > 0 && (
-        <Card title="Common Mistakes">
-          <Space direction="vertical" style={{ width: '100%' }}>
+        <Card title="Common Mistakes Analysis">
+          <div style={{ height: window.innerWidth < 768 ? '200px' : Math.max(200, summary.mistakePatterns.length * 50) + 'px' }}>
+            <Bar
+              data={{
+                labels: summary.mistakePatterns.map(m => m.mistake),
+                datasets: [
+                  {
+                    label: 'Count',
+                    data: summary.mistakePatterns.map(m => m.frequency),
+                    backgroundColor: summary.mistakePatterns.map(m => 
+                      m.avgPnl < -1000 ? 'rgba(239, 68, 68, 0.9)' : 
+                      m.avgPnl < 0 ? 'rgba(239, 68, 68, 0.7)' : 
+                      'rgba(239, 150, 68, 0.7)'
+                    ),
+                    borderColor: summary.mistakePatterns.map(m => 
+                      m.avgPnl < -1000 ? 'rgb(239, 68, 68)' : 
+                      m.avgPnl < 0 ? 'rgb(239, 68, 68)' : 
+                      'rgb(239, 150, 68)'
+                    ),
+                    borderWidth: 1,
+                    barThickness: window.innerWidth < 768 ? 25 : 35
+                  }
+                ]
+              }}
+              options={{
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                  padding: {
+                    right: 40
+                  }
+                },
+                plugins: {
+                  legend: {
+                    display: false
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: (context) => {
+                        const mistake = summary.mistakePatterns[context.dataIndex];
+                        return [
+                          `Count: ${mistake.frequency} times`,
+                          `Avg P&L Impact: ₹${mistake.avgPnl.toFixed(2)}`
+                        ];
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  x: {
+                    beginAtZero: true,
+                    ticks: {
+                      stepSize: 1,
+                      callback: (value) => Math.floor(value) === value ? value : ''
+                    },
+                    title: {
+                      display: true,
+                      text: 'Frequency Count'
+                    }
+                  },
+                  y: {
+                    ticks: {
+                      autoSkip: false,
+                      font: {
+                        size: window.innerWidth < 768 ? 11 : 12
+                      }
+                    }
+                  }
+                }
+              }}
+              plugins={[{
+                id: 'customLabels',
+                afterDatasetsDraw: (chart) => {
+                  const ctx = chart.ctx;
+                  chart.data.datasets.forEach((dataset, i) => {
+                    const meta = chart.getDatasetMeta(i);
+                    meta.data.forEach((bar, index) => {
+                      const mistake = summary.mistakePatterns[index];
+                      const y = bar.y;
+                      
+                      // Draw count on the right side of the bar
+                      ctx.save();
+                      ctx.fillStyle = '#ffffff';
+                      ctx.font = `bold ${window.innerWidth < 768 ? '12px' : '14px'} sans-serif`;
+                      ctx.textAlign = 'left';
+                      ctx.textBaseline = 'middle';
+                      ctx.fillText(mistake.frequency, bar.x + bar.width + 5, y);
+                      ctx.restore();
+                    });
+                  });
+                }
+              }]}
+            />
+          </div>
+          <Divider />
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Row justify="space-between" style={{ marginBottom: '8px' }}>
+              <Col>
+                <Text strong>Total Mistakes:</Text>
+              </Col>
+              <Col>
+                <Text strong>{summary.mistakePatterns.reduce((sum, m) => sum + m.frequency, 0)}</Text>
+              </Col>
+            </Row>
             {summary.mistakePatterns.map((mistake, index) => (
-              <Card key={index} size="small" style={{ backgroundColor: '#3d1a1a' }}>
-                <Row justify="space-between" align="middle">
-                  <Col>
-                    <strong>{mistake.mistake}</strong>
-                  </Col>
-                  <Col>
-                    <Space>
-                      <span style={{ color: '#666' }}>{mistake.frequency} times</span>
-                      <span style={{ color: mistake.avgPnl < 0 ? '#ff4757' : '#00ff88', fontWeight: 'bold' }}>
-                        Avg: ₹{mistake.avgPnl.toFixed(2)}
-                      </span>
-                    </Space>
-                  </Col>
-                </Row>
-              </Card>
+              <Row key={index} justify="space-between">
+                <Col span={14}>
+                  <Text>{mistake.mistake}</Text>
+                </Col>
+                <Col span={4}>
+                  <Text type="secondary">{mistake.frequency}x</Text>
+                </Col>
+                <Col span={6} style={{ textAlign: 'right' }}>
+                  <Text style={{ color: mistake.avgPnl < 0 ? '#ff4757' : '#ffaa00' }}>
+                    ₹{mistake.avgPnl.toFixed(0)} avg
+                  </Text>
+                </Col>
+              </Row>
             ))}
           </Space>
         </Card>
       )}
+
+      {/* Weekly R-Multiple Analysis Modal */}
+      <Modal
+        title="Week-on-Week R-Multiple Trend"
+        open={weeklyRMultipleVisible}
+        onCancel={() => setWeeklyRMultipleVisible(false)}
+        footer={null}
+        width={window.innerWidth < 768 ? '95vw' : 900}
+      >
+        <div style={{ height: '400px', marginBottom: '20px' }}>
+          <Line
+            data={{
+              labels: weeklyRMultipleData.map(w => w.weekLabel),
+              datasets: [
+                {
+                  label: 'All Trades Average',
+                  data: weeklyRMultipleData.map(w => w.avgRMultiple),
+                  borderColor: 'rgb(99, 102, 241)',
+                  backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                  borderWidth: 3,
+                  tension: 0.3,
+                  pointRadius: 4,
+                  pointBackgroundColor: 'rgb(99, 102, 241)'
+                },
+                {
+                  label: 'Winners Average',
+                  data: weeklyRMultipleData.map(w => w.avgWinnersRMultiple),
+                  borderColor: 'rgb(34, 197, 94)',
+                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                  borderWidth: 2,
+                  tension: 0.3,
+                  pointRadius: 3,
+                  pointBackgroundColor: 'rgb(34, 197, 94)'
+                },
+                {
+                  label: 'Losers Average',
+                  data: weeklyRMultipleData.map(w => w.avgLosersRMultiple),
+                  borderColor: 'rgb(239, 68, 68)',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  borderWidth: 2,
+                  tension: 0.3,
+                  pointRadius: 3,
+                  pointBackgroundColor: 'rgb(239, 68, 68)'
+                }
+              ]
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: {
+                mode: 'index',
+                intersect: false
+              },
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'top'
+                },
+                tooltip: {
+                  callbacks: {
+                    afterLabel: (context) => {
+                      const week = weeklyRMultipleData[context.dataIndex];
+                      return [
+                        `Total Trades: ${week.totalTrades}`,
+                        `Winners: ${week.winningTrades}`,
+                        `Losers: ${week.losingTrades}`
+                      ];
+                    }
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  grid: {
+                    color: (context) => {
+                      if (context.tick.value === 0) {
+                        return 'rgba(255, 255, 255, 0.3)';
+                      }
+                      return 'rgba(255, 255, 255, 0.1)';
+                    }
+                  },
+                  ticks: {
+                    callback: (value) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}R`
+                  },
+                  title: {
+                    display: true,
+                    text: 'R-Multiple'
+                  }
+                },
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Week'
+                  }
+                }
+              }
+            }}
+          />
+        </div>
+        <Divider />
+        <Row gutter={[16, 16]}>
+          <Col span={8}>
+            <Card style={{ textAlign: 'center' }}>
+              <Statistic
+                title="Latest Week Avg"
+                value={weeklyRMultipleData.length > 0 ? weeklyRMultipleData[weeklyRMultipleData.length - 1]?.avgRMultiple.toFixed(2) : 'N/A'}
+                suffix="R"
+                valueStyle={{ 
+                  color: weeklyRMultipleData.length > 0 && weeklyRMultipleData[weeklyRMultipleData.length - 1]?.avgRMultiple >= 0 ? '#00ff88' : '#ff4757'
+                }}
+              />
+            </Card>
+          </Col>
+          <Col span={8}>
+            <Card style={{ textAlign: 'center' }}>
+              <Statistic
+                title="12-Week Avg"
+                value={weeklyRMultipleData.length > 0 ? 
+                  (weeklyRMultipleData.reduce((sum, w) => sum + w.avgRMultiple, 0) / weeklyRMultipleData.length).toFixed(2) : 'N/A'}
+                suffix="R"
+                valueStyle={{ 
+                  color: weeklyRMultipleData.length > 0 && 
+                    (weeklyRMultipleData.reduce((sum, w) => sum + w.avgRMultiple, 0) / weeklyRMultipleData.length) >= 0 ? '#00ff88' : '#ff4757'
+                }}
+              />
+            </Card>
+          </Col>
+          <Col span={8}>
+            <Card style={{ textAlign: 'center' }}>
+              <Statistic
+                title="Best Week"
+                value={weeklyRMultipleData.length > 0 ? 
+                  Math.max(...weeklyRMultipleData.map(w => w.avgRMultiple)).toFixed(2) : 'N/A'}
+                suffix="R"
+                valueStyle={{ color: '#00ff88' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+        
+        {/* R-Multiple Insights Section */}
+        <Divider />
+        <Card style={{ backgroundColor: '#1a1a1a', marginTop: '20px' }}>
+          <Text strong style={{ fontSize: '18px', color: '#ffffff' }}>📊 R-Multiple Insights & Analysis</Text>
+          
+          {/* Educational Section */}
+          <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
+            <Text strong style={{ color: '#00d9ff' }}>What is R-Multiple?</Text>
+            <Paragraph style={{ marginTop: '8px', color: '#cccccc', marginBottom: 0 }}>
+              R-Multiple measures your profit/loss relative to your initial risk. For example, if you risk ₹1,000 (1R) 
+              and make ₹2,000 profit, that's a 2R win. If you lose ₹500, that's a -0.5R loss.
+            </Paragraph>
+          </div>
+
+          {/* Trend Analysis */}
+          {weeklyRMultipleData.length > 1 && (() => {
+            const recentTrend = weeklyRMultipleData.slice(-4);
+            const isImproving = recentTrend.length > 1 && 
+              recentTrend[recentTrend.length - 1].avgRMultiple > recentTrend[0].avgRMultiple;
+            const avgWinners = weeklyRMultipleData.reduce((sum, w) => sum + w.avgWinnersRMultiple, 0) / weeklyRMultipleData.length;
+            const avgLosers = weeklyRMultipleData.reduce((sum, w) => sum + w.avgLosersRMultiple, 0) / weeklyRMultipleData.length;
+            const riskRewardRatio = Math.abs(avgWinners / avgLosers);
+            
+            return (
+              <div style={{ marginTop: '20px' }}>
+                <Text strong style={{ fontSize: '16px', color: '#ffffff' }}>📈 Performance Analysis</Text>
+                <ul style={{ marginTop: '12px', paddingLeft: '20px' }}>
+                  {/* Trend Direction */}
+                  <li style={{ marginBottom: '10px', color: isImproving ? '#00ff88' : '#ff4757' }}>
+                    <strong>4-Week Trend:</strong> Your R-Multiple is {isImproving ? 'improving' : 'declining'} 
+                    ({recentTrend[0].avgRMultiple.toFixed(2)}R → {recentTrend[recentTrend.length - 1].avgRMultiple.toFixed(2)}R)
+                  </li>
+                  
+                  {/* Risk-Reward Assessment */}
+                  <li style={{ marginBottom: '10px', color: riskRewardRatio >= 2 ? '#00ff88' : riskRewardRatio >= 1.5 ? '#ffaa00' : '#ff4757' }}>
+                    <strong>Risk-Reward Ratio:</strong> {riskRewardRatio.toFixed(2)}:1 
+                    {riskRewardRatio >= 2 ? ' (Excellent!)' : riskRewardRatio >= 1.5 ? ' (Good)' : ' (Needs improvement)'}
+                  </li>
+                  
+                  {/* Winners Analysis */}
+                  {avgWinners >= 2 && (
+                    <li style={{ marginBottom: '10px', color: '#00ff88' }}>
+                      <strong>Winner Management:</strong> Excellent! Your winners average {avgWinners.toFixed(2)}R - you're letting profits run
+                    </li>
+                  )}
+                  {avgWinners < 2 && avgWinners >= 1 && (
+                    <li style={{ marginBottom: '10px', color: '#ffaa00' }}>
+                      <strong>Winner Management:</strong> Your winners average {avgWinners.toFixed(2)}R - consider holding winners longer
+                    </li>
+                  )}
+                  
+                  {/* Losers Analysis */}
+                  {Math.abs(avgLosers) <= 1 && (
+                    <li style={{ marginBottom: '10px', color: '#00ff88' }}>
+                      <strong>Loss Control:</strong> Great discipline! Losses average {avgLosers.toFixed(2)}R - you're cutting losses effectively
+                    </li>
+                  )}
+                  {Math.abs(avgLosers) > 1 && (
+                    <li style={{ marginBottom: '10px', color: '#ff4757' }}>
+                      <strong>Loss Control:</strong> Losses averaging {avgLosers.toFixed(2)}R - work on cutting losses at -1R
+                    </li>
+                  )}
+                </ul>
+              </div>
+            );
+          })()}
+
+          {/* Recommendations */}
+          <div style={{ marginTop: '20px', padding: '12px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
+            <Text strong style={{ fontSize: '16px', color: '#ffaa00' }}>💡 Recommendations</Text>
+            {weeklyRMultipleData.length > 0 && (() => {
+              const avgAll = weeklyRMultipleData.reduce((sum, w) => sum + w.avgRMultiple, 0) / weeklyRMultipleData.length;
+              const avgWinners = weeklyRMultipleData.reduce((sum, w) => sum + w.avgWinnersRMultiple, 0) / weeklyRMultipleData.length;
+              const avgLosers = weeklyRMultipleData.reduce((sum, w) => sum + w.avgLosersRMultiple, 0) / weeklyRMultipleData.length;
+              
+              return (
+                <ul style={{ marginTop: '12px', paddingLeft: '20px', color: '#cccccc' }}>
+                  {avgAll < 0.5 && (
+                    <>
+                      <li style={{ marginBottom: '8px' }}>🎯 Focus on risk management - ensure stop losses are always in place</li>
+                      <li style={{ marginBottom: '8px' }}>📊 Review your entry criteria - are you entering trades with clear edge?</li>
+                    </>
+                  )}
+                  {avgWinners < 2 && (
+                    <li style={{ marginBottom: '8px' }}>📈 Let winners run longer - consider trailing stops instead of fixed targets</li>
+                  )}
+                  {Math.abs(avgLosers) > 1.2 && (
+                    <li style={{ marginBottom: '8px' }}>✂️ Cut losses quicker - stick to your -1R stop loss strictly</li>
+                  )}
+                  {avgAll >= 1 && (
+                    <li style={{ marginBottom: '8px' }}>✅ Maintain your current approach - your risk management is working well!</li>
+                  )}
+                  <li style={{ marginBottom: '8px' }}>📝 Target: Aim for average R-Multiple above 1.5R with consistent -1R max loss</li>
+                </ul>
+              );
+            })()}
+          </div>
+
+          {/* Key Metrics Grid */}
+          <Row gutter={[16, 16]} style={{ marginTop: '20px' }}>
+            <Col span={6}>
+              <div style={{ textAlign: 'center', padding: '10px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
+                <Text type="secondary" style={{ fontSize: '12px' }}>Target R-Multiple</Text>
+                <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#00ff88', marginTop: '4px' }}>
+                  1.5R+
+                </div>
+              </div>
+            </Col>
+            <Col span={6}>
+              <div style={{ textAlign: 'center', padding: '10px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
+                <Text type="secondary" style={{ fontSize: '12px' }}>Max Loss Target</Text>
+                <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#ff4757', marginTop: '4px' }}>
+                  -1.0R
+                </div>
+              </div>
+            </Col>
+            <Col span={6}>
+              <div style={{ textAlign: 'center', padding: '10px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
+                <Text type="secondary" style={{ fontSize: '12px' }}>Win Target</Text>
+                <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#00ff88', marginTop: '4px' }}>
+                  2.0R+
+                </div>
+              </div>
+            </Col>
+            <Col span={6}>
+              <div style={{ textAlign: 'center', padding: '10px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
+                <Text type="secondary" style={{ fontSize: '12px' }}>Risk:Reward</Text>
+                <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#00d9ff', marginTop: '4px' }}>
+                  1:2+
+                </div>
+              </div>
+            </Col>
+          </Row>
+        </Card>
+      </Modal>
+
+      {/* Plan Follow Rate Insights Modal */}
+      <Modal
+        title="Plan Follow Rate Analysis"
+        open={planFollowModalVisible}
+        onCancel={() => setPlanFollowModalVisible(false)}
+        footer={null}
+        width={window.innerWidth < 768 ? '95vw' : 800}
+      >
+        {/* Overall Plan Follow Rate Display */}
+        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+          <Progress
+            type="circle"
+            percent={summary.planFollowRate}
+            strokeColor={getPlanFollowColor(summary.planFollowRate)}
+            format={(percent) => `${percent.toFixed(0)}%`}
+            width={150}
+            strokeWidth={8}
+          />
+          <div style={{ marginTop: '16px' }}>
+            <Text strong style={{ fontSize: '18px', color: getPlanFollowColor(summary.planFollowRate) }}>
+              {getPlanFollowText(summary.planFollowRate)}
+            </Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '14px' }}>
+              {summary.tradesWithPlanFollowed}/{summary.totalTrades} trades followed your plan
+            </Text>
+          </div>
+        </div>
+
+        <Divider />
+
+        {/* Insights Section */}
+        <Card style={{ backgroundColor: '#1a1a1a' }}>
+          <Text strong style={{ fontSize: '18px', color: '#ffffff' }}>📋 Plan Follow Rate Insights</Text>
+          
+          {/* Educational Section */}
+          <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
+            <Text strong style={{ color: '#00d9ff' }}>What is Plan Follow Rate?</Text>
+            <Paragraph style={{ marginTop: '8px', color: '#cccccc', marginBottom: 0 }}>
+              Plan Follow Rate measures how consistently you stick to your predetermined trading plan. It tracks whether you 
+              followed your entry/exit rules, position sizing, and risk management guidelines for each trade.
+            </Paragraph>
+          </div>
+
+          {/* Performance Analysis */}
+          <div style={{ marginTop: '20px' }}>
+            <Text strong style={{ fontSize: '16px', color: '#ffffff' }}>📈 Discipline Analysis</Text>
+            <ul style={{ marginTop: '12px', paddingLeft: '20px' }}>
+              {/* Plan Follow Rate Assessment */}
+              <li style={{ marginBottom: '10px', color: summary.planFollowRate >= 80 ? '#00ff88' : summary.planFollowRate >= 60 ? '#ffaa00' : '#ff4757' }}>
+                <strong>Discipline Level:</strong> {
+                  summary.planFollowRate >= 90 ? 'Exceptional discipline!' :
+                  summary.planFollowRate >= 80 ? 'Strong discipline' :
+                  summary.planFollowRate >= 60 ? 'Moderate discipline - room for improvement' :
+                  summary.planFollowRate >= 40 ? 'Poor discipline - needs immediate attention' :
+                  'Very poor discipline - major focus needed'
+                } ({summary.planFollowRate.toFixed(1)}%)
+              </li>
+              
+              {/* Impact on Performance */}
+              {summary.planFollowRate >= 80 && summary.avgRMultiple > 0 && (
+                <li style={{ marginBottom: '10px', color: '#00ff88' }}>
+                  <strong>Performance Impact:</strong> Your high discipline is likely contributing to your positive R-Multiple!
+                </li>
+              )}
+              {summary.planFollowRate < 60 && summary.avgRMultiple < 0 && (
+                <li style={{ marginBottom: '10px', color: '#ff4757' }}>
+                  <strong>Performance Impact:</strong> Poor plan adherence may be hurting your overall performance
+                </li>
+              )}
+              
+              {/* Trades Outside Plan */}
+              {summary.totalTrades > summary.tradesWithPlanFollowed && (
+                <li style={{ marginBottom: '10px', color: '#ffaa00' }}>
+                  <strong>Trades Outside Plan:</strong> {summary.totalTrades - summary.tradesWithPlanFollowed} trades deviated from your plan
+                </li>
+              )}
+            </ul>
+          </div>
+
+          {/* Recommendations */}
+          <div style={{ marginTop: '20px', padding: '12px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
+            <Text strong style={{ fontSize: '16px', color: '#ffaa00' }}>💡 Recommendations</Text>
+            <ul style={{ marginTop: '12px', paddingLeft: '20px', color: '#cccccc' }}>
+              {summary.planFollowRate < 50 && (
+                <>
+                  <li style={{ marginBottom: '8px' }}>📝 Write down your trading plan before market open</li>
+                  <li style={{ marginBottom: '8px' }}>⏰ Set alerts for entry/exit points to avoid emotional decisions</li>
+                  <li style={{ marginBottom: '8px' }}>🚫 Use position sizing calculator to stick to risk limits</li>
+                </>
+              )}
+              {summary.planFollowRate >= 50 && summary.planFollowRate < 80 && (
+                <>
+                  <li style={{ marginBottom: '8px' }}>🎯 Review trades where you deviated - identify patterns</li>
+                  <li style={{ marginBottom: '8px' }}>📱 Use trade alerts/reminders to stay disciplined</li>
+                  <li style={{ marginBottom: '8px' }}>🧘 Practice emotional control techniques</li>
+                </>
+              )}
+              {summary.planFollowRate >= 80 && (
+                <>
+                  <li style={{ marginBottom: '8px' }}>✅ Excellent discipline! Keep maintaining this consistency</li>
+                  <li style={{ marginBottom: '8px' }}>📊 Fine-tune your plan based on what's working well</li>
+                </>
+              )}
+              <li style={{ marginBottom: '8px' }}>🎯 Target: Maintain 90%+ plan follow rate for consistent profitability</li>
+            </ul>
+          </div>
+
+          {/* Actual Deviation Analysis */}
+          <div style={{ marginTop: '20px' }}>
+            <Text strong style={{ fontSize: '16px', color: '#ffffff' }}>🔍 Your Common Deviations</Text>
+            {deviationData.totalDeviationTrades > 0 ? (
+              <>
+                <Text style={{ fontSize: '14px', color: '#cccccc', display: 'block', marginTop: '8px', marginBottom: '16px' }}>
+                  Analysis of {deviationData.totalDeviationTrades} trades where you deviated from your plan:
+                </Text>
+                <Row gutter={[16, 16]} style={{ marginTop: '16px' }}>
+                  {deviationData.topDeviations.slice(0, 3).map((deviation, index) => {
+                    const colors = ['#ff4757', '#ffaa00', '#00d9ff'];
+                    const icons = ['⚠️', '💰', '🎯'];
+                    return (
+                      <Col span={8} key={index}>
+                        <div style={{ textAlign: 'center', padding: '16px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
+                          <div style={{ fontSize: '24px', color: colors[index], marginBottom: '8px' }}>
+                            {icons[index]}
+                          </div>
+                          <Text style={{ fontSize: '12px', color: '#cccccc', textTransform: 'capitalize' }}>
+                            {deviation.mistake}
+                          </Text>
+                          <div style={{ fontSize: '14px', fontWeight: 'bold', color: colors[index], marginTop: '4px' }}>
+                            {deviation.count} times
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>
+                            ({deviation.percentage}%)
+                          </div>
+                        </div>
+                      </Col>
+                    );
+                  })}
+                  {deviationData.topDeviations.length < 3 && 
+                    Array.from({ length: 3 - deviationData.topDeviations.length }).map((_, index) => (
+                      <Col span={8} key={`empty-${index}`}>
+                        <div style={{ textAlign: 'center', padding: '16px', backgroundColor: '#2d2d2d', borderRadius: '8px', opacity: 0.5 }}>
+                          <div style={{ fontSize: '24px', color: '#666', marginBottom: '8px' }}>✓</div>
+                          <Text style={{ fontSize: '12px', color: '#666' }}>No Other</Text>
+                          <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#666', marginTop: '4px' }}>
+                            Deviations
+                          </div>
+                        </div>
+                      </Col>
+                    ))
+                  }
+                </Row>
+                {deviationData.topDeviations.length > 3 && (
+                  <div style={{ marginTop: '16px' }}>
+                    <Text style={{ fontSize: '14px', color: '#cccccc' }}>Other deviations: </Text>
+                    {deviationData.topDeviations.slice(3).map((deviation, index) => (
+                      <span key={index} style={{ fontSize: '12px', color: '#999', marginRight: '12px' }}>
+                        {deviation.mistake} ({deviation.count}x)
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '32px', backgroundColor: '#2d2d2d', borderRadius: '8px', marginTop: '16px' }}>
+                <div style={{ fontSize: '48px', color: '#00ff88', marginBottom: '16px' }}>🎉</div>
+                <Text strong style={{ fontSize: '16px', color: '#00ff88' }}>Perfect Discipline!</Text>
+                <br />
+                <Text style={{ fontSize: '14px', color: '#cccccc', marginTop: '8px' }}>
+                  No recorded deviations from your trading plan. Keep up the excellent discipline!
+                </Text>
+              </div>
+            )}
+          </div>
+
+          {/* Target Metrics */}
+          <Row gutter={[16, 16]} style={{ marginTop: '20px' }}>
+            <Col span={12}>
+              <div style={{ textAlign: 'center', padding: '16px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
+                <Text type="secondary" style={{ fontSize: '12px' }}>Target Plan Follow Rate</Text>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#00ff88', marginTop: '8px' }}>
+                  90%+
+                </div>
+              </div>
+            </Col>
+            <Col span={12}>
+              <div style={{ textAlign: 'center', padding: '16px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
+                <Text type="secondary" style={{ fontSize: '12px' }}>Professional Standard</Text>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#00d9ff', marginTop: '8px' }}>
+                  95%+
+                </div>
+              </div>
+            </Col>
+          </Row>
+        </Card>
+      </Modal>
     </Space>
   );
 };

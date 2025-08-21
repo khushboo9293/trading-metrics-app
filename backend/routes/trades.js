@@ -23,7 +23,6 @@ router.post('/', authenticateToken, async (req, res) => {
       trade_date,
       followed_plan,
       mistakes,
-      emotional_state,
       notes,
       screenshot_url
     } = req.body;
@@ -39,13 +38,13 @@ router.post('/', authenticateToken, async (req, res) => {
       `INSERT INTO trades (
         user_id, underlying, option_type, breakout_type, nifty_range, entry_price,
         stop_loss, exit_price, quantity, trade_date,
-        followed_plan, mistakes, emotional_state, notes, screenshot_url,
+        followed_plan, mistakes, notes, screenshot_url,
         pnl, return_percentage, risk_amount, r_multiple
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.userId, underlying, option_type, breakout_type, nifty_range, entry_price,
         stop_loss, exit_price, quantity, trade_date,
-        followed_plan, mistakes, emotional_state, notes, screenshot_url,
+        followed_plan, mistakes, notes, screenshot_url,
         metrics.pnl, metrics.returnPercentage, metrics.riskAmount, metrics.rMultiple
       ]
     );
@@ -115,7 +114,6 @@ router.put('/:id', authenticateToken, async (req, res) => {
       trade_date,
       followed_plan,
       mistakes,
-      emotional_state,
       notes,
       screenshot_url
     } = req.body;
@@ -141,13 +139,13 @@ router.put('/:id', authenticateToken, async (req, res) => {
       `UPDATE trades SET 
         underlying = ?, option_type = ?, breakout_type = ?, nifty_range = ?, entry_price = ?,
         stop_loss = ?, exit_price = ?, quantity = ?, trade_date = ?,
-        followed_plan = ?, mistakes = ?, emotional_state = ?, notes = ?, screenshot_url = ?,
+        followed_plan = ?, mistakes = ?, notes = ?, screenshot_url = ?,
         pnl = ?, return_percentage = ?, risk_amount = ?, r_multiple = ?
       WHERE id = ? AND user_id = ?`,
       [
         underlying, option_type, breakout_type, nifty_range, entry_price,
         stop_loss, exit_price, quantity, trade_date,
-        followed_plan, mistakes, emotional_state, notes, screenshot_url,
+        followed_plan, mistakes, notes, screenshot_url,
         metrics.pnl, metrics.returnPercentage, metrics.riskAmount, metrics.rMultiple,
         req.params.id, req.userId
       ]

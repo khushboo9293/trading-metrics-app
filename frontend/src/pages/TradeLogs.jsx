@@ -32,13 +32,20 @@ const TradeLogs = () => {
       dataIndex: 'trade_date',
       key: 'trade_date',
       render: (date) => new Date(date).toLocaleDateString(),
-      responsive: ['sm'],
+      fixed: 'left',
+      width: 100,
     },
     {
-      title: 'Underlying',
+      title: 'Symbol',
       dataIndex: 'underlying',
       key: 'underlying',
-      responsive: ['xs'],
+      render: (underlying) => (
+        <Text strong style={{ color: '#ff006b', fontSize: '14px' }}>
+          {underlying?.toUpperCase()}
+        </Text>
+      ),
+      fixed: 'left',
+      width: 100,
     },
     {
       title: 'Type',
@@ -49,7 +56,61 @@ const TradeLogs = () => {
           {type?.toUpperCase()}
         </Tag>
       ),
-      responsive: ['md'],
+      width: 80,
+    },
+    {
+      title: 'Entry',
+      dataIndex: 'entry_price',
+      key: 'entry_price',
+      render: (price) => `₹${price?.toFixed(2)}`,
+      width: 100,
+    },
+    {
+      title: 'Exit',
+      dataIndex: 'exit_price',
+      key: 'exit_price',
+      render: (price) => `₹${price?.toFixed(2)}`,
+      width: 100,
+    },
+    {
+      title: 'Stop Loss',
+      dataIndex: 'stop_loss',
+      key: 'stop_loss',
+      render: (stopLoss) => (
+        <Text style={{ color: stopLoss ? '#ffaa00' : '#666' }}>
+          {stopLoss ? `₹${stopLoss.toFixed(2)}` : 'N/A'}
+        </Text>
+      ),
+      width: 100,
+    },
+    {
+      title: 'P&L',
+      dataIndex: 'pnl',
+      key: 'pnl',
+      render: (pnl) => (
+        <Text strong style={{ 
+          color: pnl >= 0 ? '#00ff88' : '#ff4757', 
+          fontSize: '14px' 
+        }}>
+          ₹{pnl?.toFixed(2) || '0.00'}
+        </Text>
+      ),
+      width: 120,
+      sorter: (a, b) => a.pnl - b.pnl,
+    },
+    {
+      title: 'R-Multiple',
+      dataIndex: 'r_multiple',
+      key: 'r_multiple',
+      render: (rMultiple) => (
+        <Text style={{ 
+          color: rMultiple >= 0 ? '#00ff88' : '#ff4757', 
+          fontWeight: 'bold' 
+        }}>
+          {rMultiple ? `${rMultiple.toFixed(2)}R` : 'N/A'}
+        </Text>
+      ),
+      width: 100,
     },
     {
       title: 'Breakout',
@@ -60,76 +121,56 @@ const TradeLogs = () => {
           {type ? type.charAt(0).toUpperCase() + type.slice(1) : '-'}
         </Tag>
       ),
-      responsive: ['lg'],
+      width: 100,
     },
     {
-      title: 'Entry',
-      dataIndex: 'entry_price',
-      key: 'entry_price',
-      render: (price) => `₹${price}`,
-      responsive: ['sm'],
-    },
-    {
-      title: 'Exit',
-      dataIndex: 'exit_price',
-      key: 'exit_price',
-      render: (price) => `₹${price}`,
-      responsive: ['sm'],
-    },
-    {
-      title: 'P&L',
-      dataIndex: 'pnl',
-      key: 'pnl',
-      render: (pnl) => (
-        <Text style={{ color: pnl >= 0 ? '#00ff88' : '#ff4757', fontWeight: 'bold' }}>
-          ₹{pnl?.toFixed(2) || '0.00'}
-        </Text>
-      ),
-      responsive: ['xs'],
-    },
-    {
-      title: 'R-Multiple',
-      dataIndex: 'r_multiple',
-      key: 'r_multiple',
-      render: (rMultiple) => (
-        <Text style={{ color: rMultiple >= 0 ? '#00ff88' : '#ff4757', fontWeight: 'bold' }}>
-          {rMultiple?.toFixed(2) || '0.00'}R
-        </Text>
-      ),
-      responsive: ['md'],
-    },
-    {
-      title: 'Plan',
+      title: 'Plan Followed',
       dataIndex: 'followed_plan',
       key: 'followed_plan',
       render: (followed) => (
-        <Text style={{ color: followed ? '#00ff88' : '#ff4757', fontSize: '16px' }}>
-          {followed ? '✓' : '✗'}
+        <Text style={{ 
+          color: followed ? '#00ff88' : '#ff4757', 
+          fontSize: '14px',
+          fontWeight: 'bold'
+        }}>
+          {followed ? 'YES' : 'NO'}
         </Text>
       ),
-      responsive: ['lg'],
+      width: 100,
+      align: 'center',
     },
     {
       title: 'Emotion',
       dataIndex: 'emotional_state',
       key: 'emotional_state',
-      render: (state) => state || '-',
-      responsive: ['lg'],
+      render: (state) => (
+        <Tag color={
+          state === 'calm' ? 'green' : 
+          state === 'fearful' ? 'red' : 
+          state === 'overconfident' ? 'orange' : 
+          'default'
+        }>
+          {state || '-'}
+        </Tag>
+      ),
+      width: 100,
     },
     {
       title: 'Actions',
       key: 'actions',
       render: (_, trade) => (
         <Button
-          type="link"
+          type="primary"
+          ghost
           icon={<EditOutlined />}
           onClick={() => navigate(`/edit-trade/${trade.id}`)}
           size="small"
         >
-          {window.innerWidth < 768 ? '' : 'Edit'}
+          Edit
         </Button>
       ),
-      responsive: ['xs'],
+      fixed: 'right',
+      width: 80,
     },
   ];
 
@@ -148,10 +189,15 @@ const TradeLogs = () => {
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-        <Title level={3} style={{ margin: 0, fontSize: window.innerWidth < 768 ? '20px' : '24px' }}>
-          Trade History
-        </Title>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <div>
+          <Title level={3} style={{ margin: 0, fontSize: window.innerWidth < 768 ? '20px' : '24px' }}>
+            Trade History
+          </Title>
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            Showing all {totalTrades} trades with complete details
+          </Text>
+        </div>
         <Button
           type="primary"
           icon={<PlusOutlined />}
@@ -213,23 +259,47 @@ const TradeLogs = () => {
           </div>
         </Card>
       ) : (
-        <Card>
+        <Card style={{ overflowX: 'auto' }}>
           <Table
             columns={columns}
             dataSource={trades}
             rowKey="id"
-            scroll={{ x: true }}
+            scroll={{ 
+              x: 1500,
+              y: window.innerHeight - 400
+            }}
             pagination={{
               pageSize: window.innerWidth < 768 ? 10 : 20,
-              showSizeChanger: window.innerWidth >= 768,
-              showQuickJumper: window.innerWidth >= 768,
-              showTotal: (total, range) => 
-                window.innerWidth >= 768 
-                  ? `${range[0]}-${range[1]} of ${total} trades`
-                  : `${total} trades`
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} trades`
             }}
             size={window.innerWidth < 768 ? 'small' : 'middle'}
+            rowClassName={(record) => record.pnl >= 0 ? 'profitable-row' : 'loss-row'}
+            summary={() => (
+              <Table.Summary fixed>
+                <Table.Summary.Row>
+                  <Table.Summary.Cell index={0} colSpan={6}>
+                    <Text strong>Total</Text>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={1}>
+                    <Text strong style={{ 
+                      color: totalPnl >= 0 ? '#00ff88' : '#ff4757',
+                      fontSize: '16px'
+                    }}>
+                      ₹{totalPnl.toFixed(2)}
+                    </Text>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={2} colSpan={5} />
+                </Table.Summary.Row>
+              </Table.Summary>
+            )}
           />
+          <div style={{ marginTop: '10px', textAlign: 'right' }}>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              Tip: Scroll horizontally to see all columns. Date and Symbol are fixed for easy reference.
+            </Text>
+          </div>
         </Card>
       )}
     </Space>

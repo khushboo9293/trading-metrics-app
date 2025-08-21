@@ -34,17 +34,18 @@ class Database {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
         underlying TEXT NOT NULL,
-        option_type TEXT NOT NULL CHECK(option_type IN ('call', 'put')),
+        option_type TEXT NOT NULL CHECK(option_type IN ('call', 'put', 'none')),
+        breakout_type TEXT CHECK(breakout_type IN ('vertical', 'horizontal', 'none')),
+        nifty_range TEXT CHECK(nifty_range IN ('inside_day', 'outside_bullish', 'outside_bearish')),
         strike_price REAL,
         entry_price REAL NOT NULL,
-        stop_loss REAL NOT NULL,
+        stop_loss REAL,
         exit_price REAL NOT NULL,
         quantity INTEGER NOT NULL,
         lot_size INTEGER DEFAULT 25,
         trade_date DATE NOT NULL,
         followed_plan BOOLEAN NOT NULL,
         mistakes TEXT,
-        emotional_state TEXT CHECK(emotional_state IN ('calm', 'fearful', 'overconfident', 'neutral')),
         notes TEXT,
         screenshot_url TEXT,
         pnl REAL,
@@ -79,6 +80,14 @@ class Database {
         severity TEXT CHECK(severity IN ('info', 'warning', 'success')),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id)
+      );
+
+      CREATE TABLE IF NOT EXISTS mistake_tags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tag_name TEXT UNIQUE NOT NULL,
+        category TEXT,
+        description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE INDEX IF NOT EXISTS idx_trades_user_date ON trades(user_id, trade_date);
