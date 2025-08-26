@@ -10,6 +10,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: JWT_SECRET
+        generateValue: true
       - key: PORT
         fromService:
           type: web
@@ -26,7 +28,4 @@ services:
     plan: free
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: trading-metrics-api
-          property: host
+        value: https://trading-metrics-api.onrender.com/api
