@@ -28,4 +28,4 @@ services:
     plan: free
     envVars:
       - key: VITE_API_URL
-        value: https://trading-metrics-api.onrender.com/api
+        value: https://trading-metrics-backend.onrender.com/api
