@@ -56,9 +56,9 @@ const TradeLogs = () => {
     formData.append('file', file);
     
     try {
-      const response = await api.post('/trades/import', file, {
+      const response = await api.post('/trades/import', formData, {
         headers: {
-          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          'Content-Type': 'multipart/form-data'
         }
       });
       

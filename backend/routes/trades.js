@@ -3,8 +3,23 @@ import Database from '../database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { calculateMetrics } from '../utils/metrics.js';
 import XLSX from 'xlsx';
+import multer from 'multer';
 
 const router = express.Router();
+
+// Configure multer for file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+        file.mimetype === 'application/vnd.ms-excel') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files are allowed'), false);
+    }
+  }
+});
 
 router.post('/', authenticateToken, async (req, res) => {
   try {
@@ -221,14 +236,18 @@ router.get('/export', authenticateToken, async (req, res) => {
 });
 
 // Import trades from Excel
-router.post('/import', authenticateToken, express.raw({ type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', limit: '10mb' }), async (req, res) => {
+router.post('/import', authenticateToken, upload.single('file'), async (req, res) => {
   try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
     const db = new Database();
     await db.init();
     const database = db.getDb();
     
     // Parse Excel file
-    const workbook = XLSX.read(req.body, { type: 'buffer' });
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(firstSheet);
     
