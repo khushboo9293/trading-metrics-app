@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Button, Typography, Tag, Space, Spin, Card, Statistic } from 'antd';
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { Table, Button, Typography, Tag, Space, Spin, Card, Statistic, Upload, message } from 'antd';
+import { EditOutlined, PlusOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import api from '../services/api';
 
 const { Title, Text } = Typography;
@@ -9,7 +9,9 @@ const { Title, Text } = Typography;
 const TradeLogs = () => {
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchTrades();
@@ -24,6 +26,58 @@ const TradeLogs = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExport = async () => {
+    try {
+      const response = await api.get('/trades/export', {
+        responseType: 'blob'
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `trades_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      message.success('Trades exported successfully');
+    } catch (error) {
+      console.error('Export error:', error);
+      message.error('Failed to export trades');
+    }
+  };
+
+  const handleImport = async (file) => {
+    setImporting(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await api.post('/trades/import', file, {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }
+      });
+      
+      const { imported, skipped, total } = response.data;
+      
+      if (imported > 0) {
+        message.success(`Successfully imported ${imported} trades. ${skipped > 0 ? `Skipped ${skipped} duplicates.` : ''}`);
+        fetchTrades(); // Refresh the trades list
+      } else {
+        message.info(`All ${total} trades were already present (duplicates)`);
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      message.error('Failed to import trades. Please ensure the file is in the correct format.');
+    } finally {
+      setImporting(false);
+    }
+    
+    return false; // Prevent default upload behavior
   };
 
   const columns = [
@@ -198,14 +252,37 @@ const TradeLogs = () => {
             Showing all {totalTrades} trades with complete details
           </Text>
         </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => navigate('/add-trade')}
-          size={window.innerWidth < 768 ? 'middle' : 'large'}
-        >
-          Add Trade
-        </Button>
+        <Space wrap>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => navigate('/add-trade')}
+            size={window.innerWidth < 768 ? 'middle' : 'large'}
+          >
+            Add Trade
+          </Button>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={handleExport}
+            size={window.innerWidth < 768 ? 'middle' : 'large'}
+          >
+            Export
+          </Button>
+          <Upload
+            beforeUpload={handleImport}
+            showUploadList={false}
+            accept=".xlsx,.xls"
+            disabled={importing}
+          >
+            <Button
+              icon={<UploadOutlined />}
+              loading={importing}
+              size={window.innerWidth < 768 ? 'middle' : 'large'}
+            >
+              Import
+            </Button>
+          </Upload>
+        </Space>
       </div>
 
       {/* Quick Stats Cards - Mobile Friendly */}

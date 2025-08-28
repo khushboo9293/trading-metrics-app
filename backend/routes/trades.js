@@ -2,6 +2,7 @@ import express from 'express';
 import Database from '../database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { calculateMetrics } from '../utils/metrics.js';
+import XLSX from 'xlsx';
 
 const router = express.Router();
 
@@ -163,6 +164,144 @@ router.put('/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to update trade' });
+  }
+});
+
+// Export trades to Excel
+router.get('/export', authenticateToken, async (req, res) => {
+  try {
+    const db = new Database();
+    await db.init();
+    const database = db.getDb();
+    
+    const trades = await database.all(
+      'SELECT * FROM trades WHERE user_id = ? ORDER BY trade_date DESC, created_at DESC',
+      [req.userId]
+    );
+    
+    // Transform trades data for Excel
+    const exportData = trades.map(trade => ({
+      'Date': trade.trade_date,
+      'Underlying': trade.underlying,
+      'Option Type': trade.option_type,
+      'Breakout Type': trade.breakout_type || '',
+      'Nifty Range': trade.nifty_range || '',
+      'Strike Price': trade.strike_price || '',
+      'Entry Price': trade.entry_price,
+      'Stop Loss': trade.stop_loss || '',
+      'Exit Price': trade.exit_price,
+      'Quantity': trade.quantity,
+      'Lot Size': trade.lot_size || 25,
+      'PnL': trade.pnl,
+      'Return %': trade.return_percentage,
+      'Risk Amount': trade.risk_amount || '',
+      'R-Multiple': trade.r_multiple || '',
+      'Followed Plan': trade.followed_plan ? 'Yes' : 'No',
+      'Mistakes': trade.mistakes || '',
+      'Notes': trade.notes || ''
+    }));
+    
+    // Create workbook and worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Trades');
+    
+    // Generate buffer
+    const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' });
+    
+    // Set headers and send file
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=trades_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+    res.send(buffer);
+    
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({ error: 'Failed to export trades' });
+  }
+});
+
+// Import trades from Excel
+router.post('/import', authenticateToken, express.raw({ type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', limit: '10mb' }), async (req, res) => {
+  try {
+    const db = new Database();
+    await db.init();
+    const database = db.getDb();
+    
+    // Parse Excel file
+    const workbook = XLSX.read(req.body, { type: 'buffer' });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(firstSheet);
+    
+    let imported = 0;
+    let skipped = 0;
+    
+    for (const row of data) {
+      // Check for duplicate based on date, underlying, entry, and exit prices
+      const existing = await database.get(
+        `SELECT id FROM trades WHERE user_id = ? AND trade_date = ? AND underlying = ? 
+         AND entry_price = ? AND exit_price = ?`,
+        [req.userId, row['Date'], row['Underlying'], row['Entry Price'], row['Exit Price']]
+      );
+      
+      if (existing) {
+        skipped++;
+        continue;
+      }
+      
+      // Calculate metrics
+      const metrics = calculateMetrics({
+        entry_price: row['Entry Price'],
+        exit_price: row['Exit Price'],
+        stop_loss: row['Stop Loss'] || null,
+        quantity: row['Quantity']
+      });
+      
+      // Insert trade
+      await database.run(
+        `INSERT INTO trades (
+          user_id, underlying, option_type, breakout_type, nifty_range, 
+          strike_price, entry_price, stop_loss, exit_price, quantity, lot_size,
+          trade_date, followed_plan, mistakes, notes,
+          pnl, return_percentage, risk_amount, r_multiple
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          req.userId,
+          row['Underlying'],
+          row['Option Type'] || 'call',
+          row['Breakout Type'] || null,
+          row['Nifty Range'] || null,
+          row['Strike Price'] || null,
+          row['Entry Price'],
+          row['Stop Loss'] || null,
+          row['Exit Price'],
+          row['Quantity'],
+          row['Lot Size'] || 25,
+          row['Date'],
+          row['Followed Plan'] === 'Yes' ? 1 : 0,
+          row['Mistakes'] || null,
+          row['Notes'] || null,
+          metrics.pnl,
+          metrics.returnPercentage,
+          metrics.riskAmount,
+          metrics.rMultiple
+        ]
+      );
+      
+      // Update daily metrics for imported trade
+      await updateDailyMetrics(database, req.userId, row['Date']);
+      imported++;
+    }
+    
+    res.json({ 
+      message: 'Import completed',
+      imported,
+      skipped,
+      total: data.length 
+    });
+    
+  } catch (error) {
+    console.error('Import error:', error);
+    res.status(500).json({ error: 'Failed to import trades. Please ensure the file is in the correct format.' });
   }
 });
 
