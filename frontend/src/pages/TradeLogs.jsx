@@ -21,8 +21,11 @@ const TradeLogs = () => {
     try {
       const response = await api.get('/trades');
       setTrades(response.data);
+      console.log('Trades fetched successfully:', response.data.length, 'trades');
     } catch (error) {
       console.error('Error fetching trades:', error);
+      console.error('Error details:', error.response?.data);
+      console.error('Error status:', error.response?.status);
     } finally {
       setLoading(false);
     }

@@ -16,11 +16,15 @@ const AddTrade = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [mistakeTags, setMistakeTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [emotionTags, setEmotionTags] = useState([]);
+  const [selectedEntryEmotions, setSelectedEntryEmotions] = useState([]);
+  const [selectedExitEmotions, setSelectedExitEmotions] = useState([]);
   
   const [form] = Form.useForm();
 
   useEffect(() => {
     fetchMistakeTags();
+    fetchEmotionTags();
   }, []);
 
   const fetchMistakeTags = async () => {
@@ -66,6 +70,26 @@ const AddTrade = () => {
     }
   };
 
+  const fetchEmotionTags = async () => {
+    try {
+      const response = await api.get('/metrics/emotion-tags');
+      setEmotionTags(response.data);
+    } catch (error) {
+      console.error('Error fetching emotion tags:', error);
+      setEmotionTags([]);
+    }
+  };
+
+  const createEmotionTag = async (tagName) => {
+    try {
+      const response = await api.post('/metrics/emotion-tags', { tag_name: tagName });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating emotion tag:', error);
+      return null;
+    }
+  };
+
   const handleSubmit = async (values, saveAndAddAnother = false) => {
     if (saveAndAddAnother) {
       setAddingAnother(true);
@@ -79,7 +103,9 @@ const AddTrade = () => {
       await api.post('/trades', {
         ...values,
         trade_date: values.trade_date.format('YYYY-MM-DD'),
-        mistakes: selectedTags.join(', ')
+        mistakes: selectedTags.join(', '),
+        emotional_state_entry: selectedEntryEmotions.join(', '),
+        emotional_state_exit: selectedExitEmotions.join(', ')
       });
       
       if (saveAndAddAnother) {
@@ -95,6 +121,8 @@ const AddTrade = () => {
           trade_date: moment() // Reset to today
         });
         setSelectedTags([]); // Reset tags
+        setSelectedEntryEmotions([]); // Reset entry emotions
+        setSelectedExitEmotions([]); // Reset exit emotions
         
         setSuccessMessage('Trade saved successfully! Ready for next trade.');
         
@@ -300,6 +328,111 @@ const AddTrade = () => {
                   </Tag>
                 );
               })}
+            </div>
+          </Form.Item>
+
+          {/* Emotional State Fields */}
+          <Form.Item
+            label="Emotional State During Entry"
+          >
+            <div style={{ marginBottom: 8 }}>
+              <Select
+                mode="tags"
+                style={{ width: '100%' }}
+                placeholder="Type to add emotional state during entry (e.g., confident, anxious, excited)..."
+                value={selectedEntryEmotions}
+                onChange={async (values) => {
+                  // Create new tags if they don't exist
+                  const newTags = [];
+                  for (const value of values) {
+                    if (!emotionTags.find(tag => tag.tag_name === value)) {
+                      const newTag = await createEmotionTag(value);
+                      if (newTag) {
+                        newTags.push(newTag);
+                      }
+                    }
+                  }
+                  if (newTags.length > 0) {
+                    setEmotionTags(prev => [...prev, ...newTags]);
+                  }
+                  setSelectedEntryEmotions(values);
+                }}
+                showSearch
+                filterOption={(input, option) => 
+                  option?.value?.toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {emotionTags.map(tag => (
+                  <Select.Option key={tag.tag_name} value={tag.tag_name}>
+                    {tag.tag_name} {tag.usage_count > 1 && <span style={{color: '#666'}}>({tag.usage_count})</span>}
+                  </Select.Option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              {selectedEntryEmotions.map(emotion => (
+                <Tag 
+                  key={emotion}
+                  color="blue"
+                  closable
+                  onClose={() => setSelectedEntryEmotions(emotions => emotions.filter(e => e !== emotion))}
+                  style={{ marginBottom: 4 }}
+                >
+                  {emotion}
+                </Tag>
+              ))}
+            </div>
+          </Form.Item>
+
+          <Form.Item
+            label="Emotional State During Exit"
+          >
+            <div style={{ marginBottom: 8 }}>
+              <Select
+                mode="tags"
+                style={{ width: '100%' }}
+                placeholder="Type to add emotional state during exit (e.g., relieved, frustrated, satisfied)..."
+                value={selectedExitEmotions}
+                onChange={async (values) => {
+                  // Create new tags if they don't exist
+                  const newTags = [];
+                  for (const value of values) {
+                    if (!emotionTags.find(tag => tag.tag_name === value)) {
+                      const newTag = await createEmotionTag(value);
+                      if (newTag) {
+                        newTags.push(newTag);
+                      }
+                    }
+                  }
+                  if (newTags.length > 0) {
+                    setEmotionTags(prev => [...prev, ...newTags]);
+                  }
+                  setSelectedExitEmotions(values);
+                }}
+                showSearch
+                filterOption={(input, option) => 
+                  option?.value?.toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {emotionTags.map(tag => (
+                  <Select.Option key={tag.tag_name} value={tag.tag_name}>
+                    {tag.tag_name} {tag.usage_count > 1 && <span style={{color: '#666'}}>({tag.usage_count})</span>}
+                  </Select.Option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              {selectedExitEmotions.map(emotion => (
+                <Tag 
+                  key={emotion}
+                  color="green"
+                  closable
+                  onClose={() => setSelectedExitEmotions(emotions => emotions.filter(e => e !== emotion))}
+                  style={{ marginBottom: 4 }}
+                >
+                  {emotion}
+                </Tag>
+              ))}
             </div>
           </Form.Item>
 

@@ -460,6 +460,70 @@ router.get('/tags', authenticateToken, async (req, res) => {
   }
 });
 
+// Get emotional state tags for autocomplete
+router.get('/emotion-tags', authenticateToken, async (req, res) => {
+  try {
+    const db = new Database();
+    await db.init();
+    const database = db.getDb();
+    
+    const tags = await database.all(
+      'SELECT * FROM emotional_state_tags WHERE user_id = ? ORDER BY usage_count DESC, tag_name ASC', 
+      [req.userId]
+    );
+    res.json(tags);
+  } catch (error) {
+    console.error('Error fetching emotion tags:', error);
+    res.status(500).json({ error: 'Failed to fetch emotion tags' });
+  }
+});
+
+// Create or update emotional state tag
+router.post('/emotion-tags', authenticateToken, async (req, res) => {
+  try {
+    const { tag_name } = req.body;
+    
+    if (!tag_name || tag_name.trim().length === 0) {
+      return res.status(400).json({ error: 'Tag name is required' });
+    }
+    
+    const db = new Database();
+    await db.init();
+    const database = db.getDb();
+    
+    // Check if tag already exists for this user
+    const existing = await database.get(
+      'SELECT * FROM emotional_state_tags WHERE user_id = ? AND tag_name = ?',
+      [req.userId, tag_name.trim().toLowerCase()]
+    );
+    
+    if (existing) {
+      // Increment usage count
+      await database.run(
+        'UPDATE emotional_state_tags SET usage_count = usage_count + 1 WHERE id = ?',
+        [existing.id]
+      );
+      res.json({ ...existing, usage_count: existing.usage_count + 1 });
+    } else {
+      // Create new tag
+      const result = await database.run(
+        'INSERT INTO emotional_state_tags (user_id, tag_name) VALUES (?, ?)',
+        [req.userId, tag_name.trim().toLowerCase()]
+      );
+      
+      const newTag = await database.get(
+        'SELECT * FROM emotional_state_tags WHERE id = ?',
+        [result.lastID]
+      );
+      
+      res.json(newTag);
+    }
+  } catch (error) {
+    console.error('Error creating emotion tag:', error);
+    res.status(500).json({ error: 'Failed to create emotion tag' });
+  }
+});
+
 function calculateMaxDrawdown(trades) {
   if (trades.length === 0) return 0;
   

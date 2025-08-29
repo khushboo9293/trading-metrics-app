@@ -46,6 +46,8 @@ class Database {
         trade_date DATE NOT NULL,
         followed_plan BOOLEAN NOT NULL,
         mistakes TEXT,
+        emotional_state_entry TEXT,
+        emotional_state_exit TEXT,
         notes TEXT,
         screenshot_url TEXT,
         pnl REAL,
@@ -88,6 +90,15 @@ class Database {
         category TEXT,
         description TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS emotional_state_tags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tag_name TEXT UNIQUE NOT NULL,
+        user_id INTEGER NOT NULL,
+        usage_count INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id)
       );
 
       CREATE INDEX IF NOT EXISTS idx_trades_user_date ON trades(user_id, trade_date);
