@@ -124,6 +124,8 @@ router.get('/export', authenticateToken, async (req, res) => {
       'R-Multiple': trade.r_multiple || '',
       'Followed Plan': trade.followed_plan ? 'Yes' : 'No',
       'Mistakes': trade.mistakes || '',
+      'Entry Emotions': trade.emotional_state_entry || '',
+      'Exit Emotions': trade.emotional_state_exit || '',
       'Notes': trade.notes || ''
     }));
     
@@ -209,6 +211,8 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
           row['Date'],
           row['Followed Plan'] === 'Yes' ? 1 : 0,
           row['Mistakes'] || null,
+          row['Entry Emotions'] || null,
+          row['Exit Emotions'] || null,
           row['Notes'] || null,
           metrics.pnl,
           metrics.returnPercentage,

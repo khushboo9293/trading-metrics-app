@@ -105,6 +105,30 @@ class Database {
       CREATE INDEX IF NOT EXISTS idx_daily_metrics_user_date ON daily_metrics(user_id, date);
       CREATE INDEX IF NOT EXISTS idx_insights_user ON insights(user_id);
     `);
+
+    // Add migration for emotional state columns if they don't exist
+    await this.migrateEmotionalStateColumns();
+  }
+
+  async migrateEmotionalStateColumns() {
+    try {
+      // Check if emotional_state_entry column exists
+      const tableInfo = await this.db.all("PRAGMA table_info(trades)");
+      const hasEntryColumn = tableInfo.some(col => col.name === 'emotional_state_entry');
+      const hasExitColumn = tableInfo.some(col => col.name === 'emotional_state_exit');
+
+      if (!hasEntryColumn) {
+        await this.db.exec("ALTER TABLE trades ADD COLUMN emotional_state_entry TEXT");
+        console.log('Added emotional_state_entry column to trades table');
+      }
+
+      if (!hasExitColumn) {
+        await this.db.exec("ALTER TABLE trades ADD COLUMN emotional_state_exit TEXT");
+        console.log('Added emotional_state_exit column to trades table');
+      }
+    } catch (error) {
+      console.error('Error during emotional state migration:', error);
+    }
   }
 
   getDb() {
