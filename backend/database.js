@@ -2,11 +2,16 @@ import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import PostgresDatabase from './database-pg.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-class Database {
+// Use PostgreSQL if DATABASE_URL is set (production), otherwise use SQLite (local)
+const Database = process.env.DATABASE_URL ? PostgresDatabase : class SQLiteDatabase {
   constructor() {
     this.db = null;
   }
@@ -134,6 +139,6 @@ class Database {
   getDb() {
     return this.db;
   }
-}
+};
 
 export default Database;
