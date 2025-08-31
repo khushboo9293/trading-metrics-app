@@ -79,10 +79,33 @@ try {
   console.error('Error populating default tags:', error);
 }
 
+// Health check route
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'Trading Metrics API is running',
+    endpoints: {
+      auth: '/api/auth',
+      trades: '/api/trades',
+      metrics: '/api/metrics',
+      insights: '/api/insights'
+    }
+  });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/trades', tradesRoutes);
 app.use('/api/metrics', metricsRoutes);
 app.use('/api/insights', insightsRoutes);
+
+// 404 handler for undefined routes
+app.use((req, res, next) => {
+  res.status(404).json({ 
+    error: 'Not found', 
+    message: `Route ${req.method} ${req.path} not found`,
+    availableEndpoints: ['/api/auth', '/api/trades', '/api/metrics', '/api/insights']
+  });
+});
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
