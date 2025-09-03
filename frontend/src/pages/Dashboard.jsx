@@ -1372,58 +1372,147 @@ const Dashboard = () => {
             </ul>
           </div>
 
-          {/* Actual Deviation Analysis */}
+          {/* Deviation Analysis with Patterns */}
           <div style={{ marginTop: '20px' }}>
-            <Text strong style={{ fontSize: '16px', color: '#ffffff' }}>🔍 Your Common Deviations</Text>
+            <Text strong style={{ fontSize: '16px', color: '#ffffff' }}>🔍 Your Plan Deviation Analysis</Text>
             {deviationData.totalDeviationTrades > 0 ? (
               <>
-                <Text style={{ fontSize: '14px', color: '#cccccc', display: 'block', marginTop: '8px', marginBottom: '16px' }}>
-                  Analysis of {deviationData.totalDeviationTrades} trades where you deviated from your plan:
-                </Text>
-                <Row gutter={[16, 16]} style={{ marginTop: '16px' }}>
-                  {deviationData.topDeviations.slice(0, 3).map((deviation, index) => {
-                    const colors = ['#ff4757', '#ffaa00', '#00d9ff'];
-                    const icons = ['⚠️', '💰', '🎯'];
-                    return (
-                      <Col span={8} key={index}>
-                        <div style={{ textAlign: 'center', padding: '16px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
-                          <div style={{ fontSize: '24px', color: colors[index], marginBottom: '8px' }}>
-                            {icons[index]}
-                          </div>
-                          <Text style={{ fontSize: '12px', color: '#cccccc', textTransform: 'capitalize' }}>
-                            {deviation.mistake}
-                          </Text>
-                          <div style={{ fontSize: '14px', fontWeight: 'bold', color: colors[index], marginTop: '4px' }}>
-                            {deviation.count} times
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>
-                            ({deviation.percentage}%)
-                          </div>
+                <div style={{ marginTop: '16px', padding: '16px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
+                  <Row gutter={[16, 16]}>
+                    <Col span={8}>
+                      <div style={{ textAlign: 'center' }}>
+                        <Text type="secondary" style={{ fontSize: '12px' }}>Deviation Trades</Text>
+                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ff4757', marginTop: '4px' }}>
+                          {deviationData.totalDeviationTrades}
                         </div>
-                      </Col>
-                    );
-                  })}
-                  {deviationData.topDeviations.length < 3 && 
-                    Array.from({ length: 3 - deviationData.topDeviations.length }).map((_, index) => (
-                      <Col span={8} key={`empty-${index}`}>
-                        <div style={{ textAlign: 'center', padding: '16px', backgroundColor: '#2d2d2d', borderRadius: '8px', opacity: 0.5 }}>
-                          <div style={{ fontSize: '24px', color: '#666', marginBottom: '8px' }}>✓</div>
-                          <Text style={{ fontSize: '12px', color: '#666' }}>No Other</Text>
-                          <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#666', marginTop: '4px' }}>
-                            Deviations
-                          </div>
+                      </div>
+                    </Col>
+                    <Col span={8}>
+                      <div style={{ textAlign: 'center' }}>
+                        <Text type="secondary" style={{ fontSize: '12px' }}>Avg R-Multiple</Text>
+                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: deviationData.avgRMultipleDeviations >= 0 ? '#00ff88' : '#ff4757', marginTop: '4px' }}>
+                          {deviationData.avgRMultipleDeviations ? deviationData.avgRMultipleDeviations.toFixed(2) : 'N/A'}R
                         </div>
-                      </Col>
-                    ))
-                  }
-                </Row>
-                {deviationData.topDeviations.length > 3 && (
-                  <div style={{ marginTop: '16px' }}>
+                      </div>
+                    </Col>
+                    <Col span={8}>
+                      <div style={{ textAlign: 'center' }}>
+                        <Text type="secondary" style={{ fontSize: '12px' }}>Total Impact</Text>
+                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: deviationData.totalPnlFromDeviations >= 0 ? '#00ff88' : '#ff4757', marginTop: '4px' }}>
+                          ₹{deviationData.totalPnlFromDeviations ? deviationData.totalPnlFromDeviations.toFixed(0) : 0}
+                        </div>
+                      </div>
+                    </Col>
+                  </Row>
+                </div>
+
+                {/* Pattern-Based Insights */}
+                {deviationData.insights && deviationData.insights.length > 0 && (
+                  <div style={{ marginTop: '20px' }}>
+                    <Text strong style={{ fontSize: '16px', color: '#ffaa00' }}>🧠 Deviation Pattern Insights</Text>
+                    <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: '12px' }}>
+                      {deviationData.insights.map((insight, index) => {
+                        const getInsightColor = (type) => {
+                          switch (type) {
+                            case 'emotional': return '#ff4757';
+                            case 'risk': return '#ff6b35';
+                            case 'performance': return '#ffa726';
+                            default: return '#00d9ff';
+                          }
+                        };
+                        
+                        const getInsightIcon = (type) => {
+                          switch (type) {
+                            case 'emotional': return '😰';
+                            case 'risk': return '⚠️';
+                            case 'performance': return '📉';
+                            default: return '💡';
+                          }
+                        };
+
+                        return (
+                          <Card 
+                            key={index} 
+                            size="small" 
+                            style={{ backgroundColor: '#1a1a1a', border: `1px solid ${getInsightColor(insight.type)}` }}
+                          >
+                            <Space align="start">
+                              <div style={{ fontSize: '20px' }}>{getInsightIcon(insight.type)}</div>
+                              <div style={{ flex: 1 }}>
+                                <Text strong style={{ color: getInsightColor(insight.type), fontSize: '14px' }}>
+                                  {insight.title}
+                                </Text>
+                                <div style={{ marginTop: '4px' }}>
+                                  <Text style={{ color: '#cccccc', fontSize: '13px' }}>
+                                    {insight.description}
+                                  </Text>
+                                </div>
+                                <div style={{ marginTop: '8px', padding: '8px', backgroundColor: '#2d2d2d', borderRadius: '4px' }}>
+                                  <Text style={{ color: '#00d9ff', fontSize: '12px' }}>
+                                    💡 {insight.recommendation}
+                                  </Text>
+                                </div>
+                              </div>
+                            </Space>
+                          </Card>
+                        );
+                      })}
+                    </Space>
+                  </div>
+                )}
+
+                {/* Top Deviations Grid */}
+                <div style={{ marginTop: '20px' }}>
+                  <Text strong style={{ fontSize: '16px', color: '#ffffff' }}>📊 Most Common Deviations</Text>
+                  <Row gutter={[12, 12]} style={{ marginTop: '16px' }}>
+                    {deviationData.topDeviations.slice(0, 5).map((deviation, index) => {
+                      const colors = ['#ff4757', '#ff6b35', '#ffa726', '#ffcc02', '#00d9ff'];
+                      const getIcon = (mistake) => {
+                        if (mistake.includes('fear') || mistake.includes('panic') || mistake.includes('anxious')) return '😰';
+                        if (mistake.includes('greed') || mistake.includes('fomo')) return '🤑';
+                        if (mistake.includes('stop') || mistake.includes('risk')) return '⚠️';
+                        if (mistake.includes('exit') || mistake.includes('early')) return '🏃‍♂️';
+                        if (mistake.includes('entry') || mistake.includes('timing')) return '🎯';
+                        return '📝';
+                      };
+                      
+                      return (
+                        <Col span={deviationData.topDeviations.length >= 4 ? 12 : 8} key={index}>
+                          <div style={{ 
+                            textAlign: 'center', 
+                            padding: '16px', 
+                            backgroundColor: '#2d2d2d', 
+                            borderRadius: '8px',
+                            border: `2px solid ${colors[index]}`,
+                            height: '100%'
+                          }}>
+                            <div style={{ fontSize: '24px', color: colors[index], marginBottom: '8px' }}>
+                              {getIcon(deviation.mistake)}
+                            </div>
+                            <Text style={{ fontSize: '13px', color: '#cccccc', textTransform: 'capitalize', fontWeight: 'bold' }}>
+                              {deviation.mistake}
+                            </Text>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: colors[index], marginTop: '8px' }}>
+                              {deviation.count} times
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>
+                              {deviation.percentage}% of deviations
+                            </div>
+                          </div>
+                        </Col>
+                      );
+                    })}
+                  </Row>
+                </div>
+
+                {/* Additional Deviations */}
+                {deviationData.topDeviations.length > 5 && (
+                  <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#2d2d2d', borderRadius: '8px' }}>
                     <Text style={{ fontSize: '14px', color: '#cccccc' }}>Other deviations: </Text>
-                    {deviationData.topDeviations.slice(3).map((deviation, index) => (
-                      <span key={index} style={{ fontSize: '12px', color: '#999', marginRight: '12px' }}>
+                    {deviationData.topDeviations.slice(5).map((deviation, index) => (
+                      <Tag key={index} color="orange" style={{ margin: '2px' }}>
                         {deviation.mistake} ({deviation.count}x)
-                      </span>
+                      </Tag>
                     ))}
                   </div>
                 )}

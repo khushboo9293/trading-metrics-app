@@ -337,30 +337,84 @@ router.get('/plan-deviation-analysis', authenticateToken, async (req, res) => {
     await db.init();
     const database = db.getDb();
     
-    // Get trades where plan was not followed
+    // Get all deviation trades with full details
     const deviationTrades = await database.all(
-      `SELECT mistakes FROM trades 
-       WHERE user_id = ? AND followed_plan = 0 AND mistakes IS NOT NULL AND mistakes != ''`,
+      `SELECT mistakes, notes, emotional_state_entry, emotional_state_exit, pnl, r_multiple, 
+              symbol, setup, entry_price, exit_price, stop_loss 
+       FROM trades 
+       WHERE user_id = ? AND followed_plan = 0`,
       [req.userId]
     );
     
     // Parse and categorize mistakes
     const mistakeFrequency = {};
+    const deviationPatterns = {
+      emotional_triggers: {},
+      setup_issues: {},
+      risk_management: {},
+      exit_problems: {}
+    };
+    
+    let totalPnlFromDeviations = 0;
+    let avgRMultipleDeviations = 0;
+    let rMultipleSum = 0;
+    let rMultipleCount = 0;
     
     deviationTrades.forEach(trade => {
+      totalPnlFromDeviations += trade.pnl || 0;
+      if (trade.r_multiple !== null && trade.r_multiple !== undefined) {
+        rMultipleSum += trade.r_multiple;
+        rMultipleCount++;
+      }
+      
+      // Analyze mistakes
       if (trade.mistakes) {
-        // Split mistakes by comma and trim whitespace
         const mistakes = trade.mistakes.split(',').map(m => m.trim().toLowerCase());
-        
         mistakes.forEach(mistake => {
           if (mistake) {
             mistakeFrequency[mistake] = (mistakeFrequency[mistake] || 0) + 1;
+            
+            // Categorize mistakes into patterns
+            if (mistake.includes('fear') || mistake.includes('greed') || mistake.includes('revenge') || mistake.includes('fomo')) {
+              deviationPatterns.emotional_triggers[mistake] = (deviationPatterns.emotional_triggers[mistake] || 0) + 1;
+            } else if (mistake.includes('setup') || mistake.includes('entry') || mistake.includes('timing')) {
+              deviationPatterns.setup_issues[mistake] = (deviationPatterns.setup_issues[mistake] || 0) + 1;
+            } else if (mistake.includes('stop') || mistake.includes('risk') || mistake.includes('size') || mistake.includes('position')) {
+              deviationPatterns.risk_management[mistake] = (deviationPatterns.risk_management[mistake] || 0) + 1;
+            } else if (mistake.includes('exit') || mistake.includes('target') || mistake.includes('hold')) {
+              deviationPatterns.exit_problems[mistake] = (deviationPatterns.exit_problems[mistake] || 0) + 1;
+            }
+          }
+        });
+      }
+      
+      // Analyze emotional states for patterns
+      if (trade.emotional_state_entry) {
+        const emotions = trade.emotional_state_entry.split(',').map(e => e.trim().toLowerCase());
+        emotions.forEach(emotion => {
+          if (emotion.includes('anxious') || emotion.includes('nervous') || emotion.includes('uncertain') || 
+              emotion.includes('greedy') || emotion.includes('angry') || emotion.includes('frustrated')) {
+            deviationPatterns.emotional_triggers[`entry: ${emotion}`] = (deviationPatterns.emotional_triggers[`entry: ${emotion}`] || 0) + 1;
+          }
+        });
+      }
+      
+      if (trade.emotional_state_exit) {
+        const emotions = trade.emotional_state_exit.split(',').map(e => e.trim().toLowerCase());
+        emotions.forEach(emotion => {
+          if (emotion.includes('panic') || emotion.includes('fear') || emotion.includes('impatient') || 
+              emotion.includes('greedy') || emotion.includes('regret') || emotion.includes('frustrated')) {
+            deviationPatterns.emotional_triggers[`exit: ${emotion}`] = (deviationPatterns.emotional_triggers[`exit: ${emotion}`] || 0) + 1;
           }
         });
       }
     });
     
-    // Convert to array and sort by frequency
+    if (rMultipleCount > 0) {
+      avgRMultipleDeviations = rMultipleSum / rMultipleCount;
+    }
+    
+    // Convert to sorted arrays
     const sortedMistakes = Object.entries(mistakeFrequency)
       .map(([mistake, count]) => ({
         mistake: mistake,
@@ -368,11 +422,55 @@ router.get('/plan-deviation-analysis', authenticateToken, async (req, res) => {
         percentage: ((count / deviationTrades.length) * 100).toFixed(1)
       }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5); // Top 5 deviations
+      .slice(0, 5);
+    
+    // Generate insights based on patterns
+    const insights = [];
+    
+    // Emotional pattern analysis
+    const emotionalIssues = Object.keys(deviationPatterns.emotional_triggers).length;
+    const riskIssues = Object.keys(deviationPatterns.risk_management).length;
+    const setupIssues = Object.keys(deviationPatterns.setup_issues).length;
+    const exitIssues = Object.keys(deviationPatterns.exit_problems).length;
+    
+    if (emotionalIssues > 0) {
+      const topEmotion = Object.entries(deviationPatterns.emotional_triggers)
+        .sort((a, b) => b[1] - a[1])[0];
+      insights.push({
+        type: 'emotional',
+        title: 'Emotional Trading Issues',
+        description: `Most common: "${topEmotion[0]}" (${topEmotion[1]} times)`,
+        recommendation: 'Consider implementing emotional check-ins before trading'
+      });
+    }
+    
+    if (riskIssues > 0) {
+      const topRisk = Object.entries(deviationPatterns.risk_management)
+        .sort((a, b) => b[1] - a[1])[0];
+      insights.push({
+        type: 'risk',
+        title: 'Risk Management Lapses',
+        description: `Most common: "${topRisk[0]}" (${topRisk[1]} times)`,
+        recommendation: 'Review and strengthen your risk management rules'
+      });
+    }
+    
+    if (avgRMultipleDeviations < -1.5) {
+      insights.push({
+        type: 'performance',
+        title: 'Plan Deviations Hurt Performance',
+        description: `Deviation trades average ${avgRMultipleDeviations.toFixed(2)}R vs planned trades`,
+        recommendation: 'Plan adherence is critical - your deviations are costly'
+      });
+    }
     
     res.json({
       totalDeviationTrades: deviationTrades.length,
-      topDeviations: sortedMistakes
+      topDeviations: sortedMistakes,
+      deviationPatterns,
+      insights,
+      avgRMultipleDeviations,
+      totalPnlFromDeviations
     });
   } catch (error) {
     console.error('Error fetching plan deviation analysis:', error);
