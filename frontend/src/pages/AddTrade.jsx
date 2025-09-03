@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Form, Input, Select, Button, DatePicker, InputNumber, Typography, Space, Alert, Tag } from 'antd';
-import { PlusOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { PlusOutlined, ArrowLeftOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import api from '../services/api';
+import EntryEmotionalStatesGuide from '../guides/EntryEmotionalStates';
+import ExitEmotionalStatesGuide from '../guides/ExitEmotionalStates';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -19,6 +21,8 @@ const AddTrade = () => {
   const [emotionTags, setEmotionTags] = useState([]);
   const [selectedEntryEmotions, setSelectedEntryEmotions] = useState([]);
   const [selectedExitEmotions, setSelectedExitEmotions] = useState([]);
+  const [entryGuideVisible, setEntryGuideVisible] = useState(false);
+  const [exitGuideVisible, setExitGuideVisible] = useState(false);
   
   const [form] = Form.useForm();
 
@@ -333,7 +337,20 @@ const AddTrade = () => {
 
           {/* Emotional State Fields */}
           <Form.Item
-            label="Emotional State During Entry"
+            label={
+              <Space>
+                <span>Emotional State During Entry</span>
+                <Button 
+                  type="link" 
+                  size="small"
+                  icon={<QuestionCircleOutlined />}
+                  onClick={() => setEntryGuideVisible(true)}
+                  style={{ color: '#00d9ff', padding: 0 }}
+                >
+                  Guide
+                </Button>
+              </Space>
+            }
           >
             <div style={{ marginBottom: 8 }}>
               <Select
@@ -385,7 +402,20 @@ const AddTrade = () => {
           </Form.Item>
 
           <Form.Item
-            label="Emotional State During Exit"
+            label={
+              <Space>
+                <span>Emotional State During Exit</span>
+                <Button 
+                  type="link" 
+                  size="small"
+                  icon={<QuestionCircleOutlined />}
+                  onClick={() => setExitGuideVisible(true)}
+                  style={{ color: '#ff6b35', padding: 0 }}
+                >
+                  Guide
+                </Button>
+              </Space>
+            }
           >
             <div style={{ marginBottom: 8 }}>
               <Select
@@ -474,6 +504,17 @@ const AddTrade = () => {
           </Form.Item>
         </Form>
       </Card>
+
+      {/* Emotional States Guides */}
+      <EntryEmotionalStatesGuide 
+        visible={entryGuideVisible}
+        onClose={() => setEntryGuideVisible(false)}
+      />
+      
+      <ExitEmotionalStatesGuide 
+        visible={exitGuideVisible}
+        onClose={() => setExitGuideVisible(false)}
+      />
     </Space>
   );
 };
