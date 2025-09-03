@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, Form, Input, Select, Button, DatePicker, InputNumber, Typography, Space, Alert, Spin, Tag } from 'antd';
-import { SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { SaveOutlined, ArrowLeftOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import api from '../services/api';
+import EntryEmotionalStatesGuide from '../guides/EntryEmotionalStates';
+import ExitEmotionalStatesGuide from '../guides/ExitEmotionalStates';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -17,10 +19,16 @@ const EditTrade = () => {
   const [error, setError] = useState('');
   const [mistakeTags, setMistakeTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
+  const [emotionTags, setEmotionTags] = useState([]);
+  const [selectedEntryEmotions, setSelectedEntryEmotions] = useState([]);
+  const [selectedExitEmotions, setSelectedExitEmotions] = useState([]);
+  const [entryGuideVisible, setEntryGuideVisible] = useState(false);
+  const [exitGuideVisible, setExitGuideVisible] = useState(false);
 
   useEffect(() => {
     fetchTrade();
     fetchMistakeTags();
+    fetchEmotionTags();
   }, [id]);
 
   const fetchMistakeTags = async () => {
@@ -41,6 +49,26 @@ const EditTrade = () => {
         { tag_name: 'poor-risk-sizing', category: 'risk', description: 'Risk too high/low for account' }
       ];
       setMistakeTags(fallbackTags);
+    }
+  };
+
+  const fetchEmotionTags = async () => {
+    try {
+      const response = await api.get('/metrics/emotion-tags');
+      setEmotionTags(response.data);
+    } catch (err) {
+      console.error('Failed to fetch emotion tags:', err);
+      // Fallback to default emotion tags
+      const fallbackEmotions = [
+        { tag_name: 'confident', category: 'positive' },
+        { tag_name: 'focused', category: 'positive' },
+        { tag_name: 'calm', category: 'positive' },
+        { tag_name: 'anxious', category: 'negative' },
+        { tag_name: 'greedy', category: 'negative' },
+        { tag_name: 'fearful', category: 'negative' },
+        { tag_name: 'neutral', category: 'neutral' }
+      ];
+      setEmotionTags(fallbackEmotions);
     }
   };
 
@@ -66,6 +94,15 @@ const EditTrade = () => {
         const tags = trade.mistakes.split(',').map(tag => tag.trim()).filter(tag => tag);
         setSelectedTags(tags);
       }
+      // Set emotional states
+      if (trade.emotional_state_entry) {
+        const entryEmotions = trade.emotional_state_entry.split(',').map(emotion => emotion.trim()).filter(emotion => emotion);
+        setSelectedEntryEmotions(entryEmotions);
+      }
+      if (trade.emotional_state_exit) {
+        const exitEmotions = trade.emotional_state_exit.split(',').map(emotion => emotion.trim()).filter(emotion => emotion);
+        setSelectedExitEmotions(exitEmotions);
+      }
     } catch (err) {
       setError('Failed to load trade data');
     } finally {
@@ -82,7 +119,9 @@ const EditTrade = () => {
       await api.put(`/trades/${id}`, {
         ...values,
         trade_date: values.trade_date.format('YYYY-MM-DD'),
-        mistakes: selectedTags.join(', ')
+        mistakes: selectedTags.join(', '),
+        emotional_state_entry: selectedEntryEmotions.join(', '),
+        emotional_state_exit: selectedExitEmotions.join(', ')
       });
       navigate('/trades');
     } catch (err) {
@@ -280,6 +319,113 @@ const EditTrade = () => {
             </div>
           </Form.Item>
 
+          {/* Emotional State Fields */}
+          <Form.Item
+            label={
+              <Space>
+                <span>Emotional State During Entry</span>
+                <Button 
+                  type="link" 
+                  size="small"
+                  icon={<QuestionCircleOutlined />}
+                  onClick={() => setEntryGuideVisible(true)}
+                  style={{ color: '#00d9ff', padding: 0 }}
+                >
+                  Guide
+                </Button>
+              </Space>
+            }
+          >
+            <div style={{ marginBottom: 8 }}>
+              <Select
+                mode="tags"
+                style={{ width: '100%' }}
+                placeholder="Select or add entry emotions"
+                value={selectedEntryEmotions}
+                onChange={setSelectedEntryEmotions}
+                options={emotionTags.map(emotion => ({
+                  label: emotion.tag_name,
+                  value: emotion.tag_name
+                }))}
+              />
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+              {emotionTags.filter(emotion => emotion.category === 'positive').slice(0, 6).map(emotion => (
+                <Tag
+                  key={emotion.tag_name}
+                  style={{ 
+                    cursor: 'pointer',
+                    backgroundColor: selectedEntryEmotions.includes(emotion.tag_name) ? '#00ff8820' : '#2d2d2d',
+                    borderColor: selectedEntryEmotions.includes(emotion.tag_name) ? '#00ff88' : '#555',
+                    color: selectedEntryEmotions.includes(emotion.tag_name) ? '#00ff88' : '#ccc'
+                  }}
+                  onClick={() => {
+                    if (selectedEntryEmotions.includes(emotion.tag_name)) {
+                      setSelectedEntryEmotions(selectedEntryEmotions.filter(e => e !== emotion.tag_name));
+                    } else {
+                      setSelectedEntryEmotions([...selectedEntryEmotions, emotion.tag_name]);
+                    }
+                  }}
+                >
+                  {emotion.tag_name}
+                </Tag>
+              ))}
+            </div>
+          </Form.Item>
+
+          <Form.Item
+            label={
+              <Space>
+                <span>Emotional State During Exit</span>
+                <Button 
+                  type="link" 
+                  size="small"
+                  icon={<QuestionCircleOutlined />}
+                  onClick={() => setExitGuideVisible(true)}
+                  style={{ color: '#ff6b35', padding: 0 }}
+                >
+                  Guide
+                </Button>
+              </Space>
+            }
+          >
+            <div style={{ marginBottom: 8 }}>
+              <Select
+                mode="tags"
+                style={{ width: '100%' }}
+                placeholder="Select or add exit emotions"
+                value={selectedExitEmotions}
+                onChange={setSelectedExitEmotions}
+                options={emotionTags.map(emotion => ({
+                  label: emotion.tag_name,
+                  value: emotion.tag_name
+                }))}
+              />
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+              {emotionTags.filter(emotion => emotion.category === 'positive').slice(0, 6).map(emotion => (
+                <Tag
+                  key={emotion.tag_name}
+                  style={{ 
+                    cursor: 'pointer',
+                    backgroundColor: selectedExitEmotions.includes(emotion.tag_name) ? '#00ff8820' : '#2d2d2d',
+                    borderColor: selectedExitEmotions.includes(emotion.tag_name) ? '#00ff88' : '#555',
+                    color: selectedExitEmotions.includes(emotion.tag_name) ? '#00ff88' : '#ccc'
+                  }}
+                  onClick={() => {
+                    if (selectedExitEmotions.includes(emotion.tag_name)) {
+                      setSelectedExitEmotions(selectedExitEmotions.filter(e => e !== emotion.tag_name));
+                    } else {
+                      setSelectedExitEmotions([...selectedExitEmotions, emotion.tag_name]);
+                    }
+                  }}
+                >
+                  {emotion.tag_name}
+                </Tag>
+              ))}
+            </div>
+          </Form.Item>
+
           <Form.Item
             label="Notes"
             name="notes"
@@ -309,6 +455,17 @@ const EditTrade = () => {
           </Form.Item>
         </Form>
       </Card>
+
+      {/* Emotional States Guides */}
+      <EntryEmotionalStatesGuide 
+        visible={entryGuideVisible}
+        onClose={() => setEntryGuideVisible(false)}
+      />
+      
+      <ExitEmotionalStatesGuide 
+        visible={exitGuideVisible}
+        onClose={() => setExitGuideVisible(false)}
+      />
     </Space>
   );
 };
