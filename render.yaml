@@ -23,7 +23,7 @@ services:
     name: trading-metrics-frontend
     runtime: static
     rootDir: frontend
-    buildCommand: npm install && npm run build && cp public/_redirects dist/ && cp public/render.json dist/
+    buildCommand: npm install && npm run build && cp public/_redirects dist/ && cp public/render.json dist/ && cp public/404.html dist/
     staticPublishPath: dist
     plan: free
     envVars:
