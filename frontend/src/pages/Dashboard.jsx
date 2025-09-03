@@ -60,6 +60,10 @@ const Dashboard = () => {
   const [weeklyRMultipleVisible, setWeeklyRMultipleVisible] = useState(false);
   const [planFollowModalVisible, setPlanFollowModalVisible] = useState(false);
   const [deviationData, setDeviationData] = useState({ totalDeviationTrades: 0, topDeviations: [] });
+  const [weeklyPlanData, setWeeklyPlanData] = useState([]);
+  const [weeklyPlanVisible, setWeeklyPlanVisible] = useState(false);
+  const [weeklyWinRateData, setWeeklyWinRateData] = useState([]);
+  const [weeklyWinRateVisible, setWeeklyWinRateVisible] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -88,6 +92,26 @@ const Dashboard = () => {
       setWeeklyRMultipleVisible(true);
     } catch (error) {
       console.error('Error fetching weekly R-Multiple data:', error);
+    }
+  };
+
+  const fetchWeeklyPlanData = async () => {
+    try {
+      const response = await api.get('/metrics/weekly-plan-follow-rate');
+      setWeeklyPlanData(response.data);
+      setWeeklyPlanVisible(true);
+    } catch (error) {
+      console.error('Error fetching weekly plan follow rate data:', error);
+    }
+  };
+
+  const fetchWeeklyWinRateData = async () => {
+    try {
+      const response = await api.get('/metrics/weekly-win-rate');
+      setWeeklyWinRateData(response.data);
+      setWeeklyWinRateVisible(true);
+    } catch (error) {
+      console.error('Error fetching weekly win rate data:', error);
     }
   };
 
@@ -184,16 +208,7 @@ const Dashboard = () => {
         <Col xs={24} sm={12} md={8} lg={8}>
           <Card 
             hoverable
-            onClick={async () => {
-              try {
-                const response = await api.get('/metrics/plan-deviation-analysis');
-                setDeviationData(response.data);
-                setPlanFollowModalVisible(true);
-              } catch (error) {
-                console.error('Error fetching deviation data:', error);
-                setPlanFollowModalVisible(true); // Still show modal even if deviation data fails
-              }
-            }}
+            onClick={fetchWeeklyPlanData}
             style={{ 
               height: '100%', 
               cursor: 'pointer',
@@ -294,7 +309,7 @@ const Dashboard = () => {
         <Col xs={24} sm={12} md={8} lg={8}>
           <Card 
             hoverable 
-            onClick={() => setWinRateModalVisible(true)}
+            onClick={fetchWeeklyWinRateData}
             style={{ 
               cursor: 'pointer', 
               height: '100%',
@@ -1522,6 +1537,330 @@ const Dashboard = () => {
             </Col>
           </Row>
         </Card>
+      </Modal>
+
+      {/* Weekly Plan Follow Rate Modal */}
+      <Modal
+        title="Weekly Plan Follow Rate Trend"
+        open={weeklyPlanVisible}
+        onCancel={() => setWeeklyPlanVisible(false)}
+        footer={null}
+        width={window.innerWidth < 768 ? '95vw' : 900}
+      >
+        <div style={{ height: window.innerWidth < 768 ? '300px' : '400px', marginBottom: '20px' }}>
+          <Line
+            data={{
+              labels: weeklyPlanData.map(w => w.weekLabel),
+              datasets: [
+                {
+                  label: 'Plan Follow Rate',
+                  data: weeklyPlanData.map(w => w.planFollowRate),
+                  borderColor: '#00ff88',
+                  backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                  borderWidth: 3,
+                  tension: 0.3,
+                  pointRadius: 5,
+                  pointBackgroundColor: '#00ff88',
+                  pointBorderColor: '#ffffff',
+                  pointBorderWidth: 2,
+                  fill: true
+                }
+              ]
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: {
+                mode: 'index',
+                intersect: false
+              },
+              plugins: {
+                legend: {
+                  display: false
+                },
+                tooltip: {
+                  backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                  borderColor: '#00ff88',
+                  borderWidth: 1,
+                  callbacks: {
+                    title: (context) => `Week of ${context[0].label}`,
+                    label: (context) => `Plan Follow Rate: ${context.parsed.y.toFixed(1)}%`,
+                    afterBody: (context) => {
+                      const week = weeklyPlanData[context[0].dataIndex];
+                      return [
+                        `Total Trades: ${week.totalTrades}`,
+                        `Followed Plan: ${week.planFollowedTrades}`,
+                        `Deviations: ${week.totalTrades - week.planFollowedTrades}`
+                      ];
+                    }
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  max: 100,
+                  grid: {
+                    color: (context) => {
+                      if (context.tick.value === 80) return 'rgba(0, 255, 136, 0.3)';
+                      if (context.tick.value === 50) return 'rgba(255, 170, 0, 0.3)';
+                      return 'rgba(255, 255, 255, 0.1)';
+                    }
+                  },
+                  ticks: {
+                    callback: (value) => `${value}%`,
+                    color: '#cccccc'
+                  },
+                  title: {
+                    display: true,
+                    text: 'Plan Follow Rate (%)',
+                    color: '#ffffff'
+                  }
+                },
+                x: {
+                  title: {
+                    display: !window.innerWidth || window.innerWidth >= 768,
+                    text: 'Week',
+                    color: '#ffffff'
+                  },
+                  ticks: {
+                    maxTicksLimit: window.innerWidth < 768 ? 6 : 12,
+                    color: '#cccccc'
+                  }
+                }
+              }
+            }}
+          />
+        </div>
+        
+        <Row gutter={[16, 16]}>
+          <Col span={8}>
+            <Card style={{ textAlign: 'center', backgroundColor: '#1a3d1a' }}>
+              <Statistic
+                title="Latest Week"
+                value={weeklyPlanData.length > 0 ? weeklyPlanData[weeklyPlanData.length - 1]?.planFollowRate.toFixed(1) : 'N/A'}
+                suffix="%"
+                valueStyle={{ color: '#00ff88' }}
+              />
+            </Card>
+          </Col>
+          <Col span={8}>
+            <Card style={{ textAlign: 'center', backgroundColor: '#2d2d2d' }}>
+              <Statistic
+                title="12-Week Avg"
+                value={weeklyPlanData.length > 0 ? 
+                  (weeklyPlanData.reduce((sum, w) => sum + w.planFollowRate, 0) / weeklyPlanData.length).toFixed(1) : 'N/A'}
+                suffix="%"
+                valueStyle={{ color: '#ffaa00' }}
+              />
+            </Card>
+          </Col>
+          <Col span={8}>
+            <Card style={{ textAlign: 'center', backgroundColor: '#1a3d1a' }}>
+              <Statistic
+                title="Best Week"
+                value={weeklyPlanData.length > 0 ? 
+                  Math.max(...weeklyPlanData.map(w => w.planFollowRate)).toFixed(1) : 'N/A'}
+                suffix="%"
+                valueStyle={{ color: '#00ff88' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        {weeklyPlanData.length > 0 && (
+          <Card style={{ backgroundColor: '#1a1a1a', marginTop: '20px' }}>
+            <Text strong style={{ fontSize: '16px', color: '#00ff88' }}>📊 Plan Follow Rate Insights</Text>
+            <div style={{ marginTop: '16px' }}>
+              {(() => {
+                const recentTrend = weeklyPlanData.slice(-4);
+                const isImproving = recentTrend.length > 1 && 
+                  recentTrend[recentTrend.length - 1].planFollowRate > recentTrend[0].planFollowRate;
+                const avgRate = weeklyPlanData.reduce((sum, w) => sum + w.planFollowRate, 0) / weeklyPlanData.length;
+                
+                return (
+                  <ul style={{ paddingLeft: '20px', color: '#cccccc' }}>
+                    <li style={{ marginBottom: '8px', color: isImproving ? '#00ff88' : '#ff4757' }}>
+                      <strong>4-Week Trend:</strong> Your discipline is {isImproving ? 'improving' : 'declining'}
+                      ({recentTrend[0]?.planFollowRate.toFixed(1)}% → {recentTrend[recentTrend.length - 1]?.planFollowRate.toFixed(1)}%)
+                    </li>
+                    <li style={{ marginBottom: '8px', color: avgRate >= 80 ? '#00ff88' : avgRate >= 60 ? '#ffaa00' : '#ff4757' }}>
+                      <strong>Overall Performance:</strong> {avgRate.toFixed(1)}% average plan follow rate
+                      {avgRate >= 90 ? ' (Exceptional!)' : avgRate >= 80 ? ' (Excellent)' : avgRate >= 60 ? ' (Good)' : ' (Needs improvement)'}
+                    </li>
+                    {avgRate < 70 && (
+                      <li style={{ marginBottom: '8px', color: '#ff4757' }}>
+                        <strong>Focus Area:</strong> Improve plan adherence - aim for 80%+ consistency
+                      </li>
+                    )}
+                  </ul>
+                );
+              })()}
+            </div>
+          </Card>
+        )}
+      </Modal>
+
+      {/* Weekly Win Rate Modal */}
+      <Modal
+        title="Weekly Win Rate Trend"
+        open={weeklyWinRateVisible}
+        onCancel={() => setWeeklyWinRateVisible(false)}
+        footer={null}
+        width={window.innerWidth < 768 ? '95vw' : 900}
+      >
+        <div style={{ height: window.innerWidth < 768 ? '300px' : '400px', marginBottom: '20px' }}>
+          <Line
+            data={{
+              labels: weeklyWinRateData.map(w => w.weekLabel),
+              datasets: [
+                {
+                  label: 'Win Rate',
+                  data: weeklyWinRateData.map(w => w.winRate),
+                  borderColor: '#2196f3',
+                  backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                  borderWidth: 3,
+                  tension: 0.3,
+                  pointRadius: 5,
+                  pointBackgroundColor: '#2196f3',
+                  pointBorderColor: '#ffffff',
+                  pointBorderWidth: 2,
+                  fill: true
+                }
+              ]
+            }}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: {
+                mode: 'index',
+                intersect: false
+              },
+              plugins: {
+                legend: {
+                  display: false
+                },
+                tooltip: {
+                  backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                  borderColor: '#2196f3',
+                  borderWidth: 1,
+                  callbacks: {
+                    title: (context) => `Week of ${context[0].label}`,
+                    label: (context) => `Win Rate: ${context.parsed.y.toFixed(1)}%`,
+                    afterBody: (context) => {
+                      const week = weeklyWinRateData[context[0].dataIndex];
+                      return [
+                        `Total Trades: ${week.totalTrades}`,
+                        `Winners: ${week.winningTrades}`,
+                        `Losers: ${week.losingTrades}`
+                      ];
+                    }
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  max: 100,
+                  grid: {
+                    color: (context) => {
+                      if (context.tick.value === 60) return 'rgba(33, 150, 243, 0.3)';
+                      if (context.tick.value === 40) return 'rgba(255, 170, 0, 0.3)';
+                      return 'rgba(255, 255, 255, 0.1)';
+                    }
+                  },
+                  ticks: {
+                    callback: (value) => `${value}%`,
+                    color: '#cccccc'
+                  },
+                  title: {
+                    display: true,
+                    text: 'Win Rate (%)',
+                    color: '#ffffff'
+                  }
+                },
+                x: {
+                  title: {
+                    display: !window.innerWidth || window.innerWidth >= 768,
+                    text: 'Week',
+                    color: '#ffffff'
+                  },
+                  ticks: {
+                    maxTicksLimit: window.innerWidth < 768 ? 6 : 12,
+                    color: '#cccccc'
+                  }
+                }
+              }
+            }}
+          />
+        </div>
+        
+        <Row gutter={[16, 16]}>
+          <Col span={8}>
+            <Card style={{ textAlign: 'center', backgroundColor: '#1a3d1a' }}>
+              <Statistic
+                title="Latest Week"
+                value={weeklyWinRateData.length > 0 ? weeklyWinRateData[weeklyWinRateData.length - 1]?.winRate.toFixed(1) : 'N/A'}
+                suffix="%"
+                valueStyle={{ color: '#00ff88' }}
+              />
+            </Card>
+          </Col>
+          <Col span={8}>
+            <Card style={{ textAlign: 'center', backgroundColor: '#2d2d2d' }}>
+              <Statistic
+                title="12-Week Avg"
+                value={weeklyWinRateData.length > 0 ? 
+                  (weeklyWinRateData.reduce((sum, w) => sum + w.winRate, 0) / weeklyWinRateData.length).toFixed(1) : 'N/A'}
+                suffix="%"
+                valueStyle={{ color: '#ffaa00' }}
+              />
+            </Card>
+          </Col>
+          <Col span={8}>
+            <Card style={{ textAlign: 'center', backgroundColor: '#1a3d1a' }}>
+              <Statistic
+                title="Best Week"
+                value={weeklyWinRateData.length > 0 ? 
+                  Math.max(...weeklyWinRateData.map(w => w.winRate)).toFixed(1) : 'N/A'}
+                suffix="%"
+                valueStyle={{ color: '#00ff88' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        {weeklyWinRateData.length > 0 && (
+          <Card style={{ backgroundColor: '#1a1a1a', marginTop: '20px' }}>
+            <Text strong style={{ fontSize: '16px', color: '#2196f3' }}>🎯 Win Rate Performance</Text>
+            <div style={{ marginTop: '16px' }}>
+              {(() => {
+                const recentTrend = weeklyWinRateData.slice(-4);
+                const isImproving = recentTrend.length > 1 && 
+                  recentTrend[recentTrend.length - 1].winRate > recentTrend[0].winRate;
+                const avgRate = weeklyWinRateData.reduce((sum, w) => sum + w.winRate, 0) / weeklyWinRateData.length;
+                
+                return (
+                  <ul style={{ paddingLeft: '20px', color: '#cccccc' }}>
+                    <li style={{ marginBottom: '8px', color: isImproving ? '#00ff88' : '#ff4757' }}>
+                      <strong>4-Week Trend:</strong> Your win rate is {isImproving ? 'improving' : 'declining'}
+                      ({recentTrend[0]?.winRate.toFixed(1)}% → {recentTrend[recentTrend.length - 1]?.winRate.toFixed(1)}%)
+                    </li>
+                    <li style={{ marginBottom: '8px', color: avgRate >= 60 ? '#00ff88' : avgRate >= 40 ? '#ffaa00' : '#ff4757' }}>
+                      <strong>Overall Performance:</strong> {avgRate.toFixed(1)}% average win rate
+                      {avgRate >= 70 ? ' (Excellent!)' : avgRate >= 60 ? ' (Very Good)' : avgRate >= 50 ? ' (Good)' : avgRate >= 40 ? ' (Fair)' : ' (Needs improvement)'}
+                    </li>
+                    {avgRate < 50 && (
+                      <li style={{ marginBottom: '8px', color: '#ff4757' }}>
+                        <strong>Focus Area:</strong> Review entry criteria - aim for 50%+ win rate
+                      </li>
+                    )}
+                  </ul>
+                );
+              })()}
+            </div>
+          </Card>
+        )}
       </Modal>
 
       {/* Plan Follow Rate Insights Modal */}

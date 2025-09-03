@@ -331,6 +331,122 @@ router.get('/weekly-r-multiple', authenticateToken, async (req, res) => {
   }
 });
 
+// Weekly Plan Follow Rate endpoint
+router.get('/weekly-plan-follow-rate', authenticateToken, async (req, res) => {
+  try {
+    const db = new Database();
+    await db.init();
+    const database = db.getDb();
+    
+    // Get last 12 weeks of data
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - (12 * 7));
+    
+    const trades = await database.all(
+      `SELECT trade_date, followed_plan FROM trades 
+       WHERE user_id = ? AND trade_date >= ? 
+       ORDER BY trade_date ASC`,
+      [req.userId, startDate.toISOString().split('T')[0]]
+    );
+    
+    // Group trades by week
+    const weeklyData = {};
+    trades.forEach(trade => {
+      const tradeDate = new Date(trade.trade_date);
+      const startOfWeek = new Date(tradeDate);
+      startOfWeek.setDate(tradeDate.getDate() - tradeDate.getDay());
+      const weekKey = startOfWeek.toISOString().split('T')[0];
+      
+      if (!weeklyData[weekKey]) {
+        weeklyData[weekKey] = {
+          week: weekKey,
+          totalTrades: 0,
+          planFollowedTrades: 0
+        };
+      }
+      
+      weeklyData[weekKey].totalTrades++;
+      if (trade.followed_plan) {
+        weeklyData[weekKey].planFollowedTrades++;
+      }
+    });
+    
+    // Calculate weekly plan follow rates
+    const weeklyPlanRates = Object.values(weeklyData).map(week => ({
+      week: week.week,
+      weekLabel: new Date(week.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      planFollowRate: week.totalTrades > 0 ? (week.planFollowedTrades / week.totalTrades) * 100 : 0,
+      totalTrades: week.totalTrades,
+      planFollowedTrades: week.planFollowedTrades
+    })).filter(week => week.totalTrades > 0);
+    
+    res.json(weeklyPlanRates);
+  } catch (error) {
+    console.error('Error fetching weekly plan follow rate data:', error);
+    res.status(500).json({ error: 'Failed to fetch weekly plan follow rate data' });
+  }
+});
+
+// Weekly Win Rate endpoint
+router.get('/weekly-win-rate', authenticateToken, async (req, res) => {
+  try {
+    const db = new Database();
+    await db.init();
+    const database = db.getDb();
+    
+    // Get last 12 weeks of data
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - (12 * 7));
+    
+    const trades = await database.all(
+      `SELECT trade_date, pnl FROM trades 
+       WHERE user_id = ? AND trade_date >= ? 
+       ORDER BY trade_date ASC`,
+      [req.userId, startDate.toISOString().split('T')[0]]
+    );
+    
+    // Group trades by week
+    const weeklyData = {};
+    trades.forEach(trade => {
+      const tradeDate = new Date(trade.trade_date);
+      const startOfWeek = new Date(tradeDate);
+      startOfWeek.setDate(tradeDate.getDate() - tradeDate.getDay());
+      const weekKey = startOfWeek.toISOString().split('T')[0];
+      
+      if (!weeklyData[weekKey]) {
+        weeklyData[weekKey] = {
+          week: weekKey,
+          totalTrades: 0,
+          winningTrades: 0,
+          losingTrades: 0
+        };
+      }
+      
+      weeklyData[weekKey].totalTrades++;
+      if (trade.pnl > 0) {
+        weeklyData[weekKey].winningTrades++;
+      } else {
+        weeklyData[weekKey].losingTrades++;
+      }
+    });
+    
+    // Calculate weekly win rates
+    const weeklyWinRates = Object.values(weeklyData).map(week => ({
+      week: week.week,
+      weekLabel: new Date(week.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      winRate: week.totalTrades > 0 ? (week.winningTrades / week.totalTrades) * 100 : 0,
+      totalTrades: week.totalTrades,
+      winningTrades: week.winningTrades,
+      losingTrades: week.losingTrades
+    })).filter(week => week.totalTrades > 0);
+    
+    res.json(weeklyWinRates);
+  } catch (error) {
+    console.error('Error fetching weekly win rate data:', error);
+    res.status(500).json({ error: 'Failed to fetch weekly win rate data' });
+  }
+});
+
 router.get('/plan-deviation-analysis', authenticateToken, async (req, res) => {
   try {
     const db = new Database();
