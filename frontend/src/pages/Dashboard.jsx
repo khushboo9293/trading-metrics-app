@@ -1246,53 +1246,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Actionable Insights */}
-          <div style={{ marginTop: '24px' }}>
-            <Card 
-              size="small" 
-              style={{ 
-                background: 'linear-gradient(135deg, #1a3d5c 0%, #2d4a66 100%)',
-                border: '1px solid #00d9ff'
-              }}
-            >
-              <Text strong style={{ fontSize: '16px', color: '#00d9ff' }}>
-                💡 Key Improvement Areas
-              </Text>
-              <Row gutter={[12, 12]} style={{ marginTop: '12px' }}>
-                {summary.mistakePatterns.slice(0, 3).map((mistake, index) => {
-                  const getRecommendation = (mistake) => {
-                    const m = mistake.mistake.toLowerCase();
-                    if (m.includes('fear') || m.includes('panic')) return 'Practice meditation before trading';
-                    if (m.includes('greed') || m.includes('fomo')) return 'Set daily profit targets and stick to them';
-                    if (m.includes('stop') || m.includes('risk')) return 'Always set stop loss before entry';
-                    if (m.includes('exit') || m.includes('early')) return 'Use trailing stops instead of manual exits';
-                    if (m.includes('entry') || m.includes('timing')) return 'Wait for complete setup confirmation';
-                    if (m.includes('plan')) return 'Write down plan before market open';
-                    return 'Review trading journal for patterns';
-                  };
-
-                  return (
-                    <Col span={8} key={index}>
-                      <div style={{
-                        padding: '12px',
-                        backgroundColor: '#2d4a66',
-                        borderRadius: '8px',
-                        border: '1px solid #00d9ff30',
-                        textAlign: 'center'
-                      }}>
-                        <Text style={{ fontSize: '12px', color: '#00d9ff', fontWeight: 'bold', textTransform: 'capitalize' }}>
-                          {mistake.mistake}
-                        </Text>
-                        <div style={{ marginTop: '8px', fontSize: '11px', color: '#b3e5fc' }}>
-                          {getRecommendation(mistake)}
-                        </div>
-                      </div>
-                    </Col>
-                  );
-                })}
-              </Row>
-            </Card>
-          </div>
         </Card>
       )}
 
