@@ -863,129 +863,436 @@ const Dashboard = () => {
         </Space>
       </Modal>
 
-      {/* Additional Analysis Sections */}
+      {/* Enhanced Common Mistakes Analysis */}
       {summary.mistakePatterns && summary.mistakePatterns.length > 0 && (
-        <Card title="Common Mistakes Analysis">
-          <div style={{ height: window.innerWidth < 768 ? '200px' : Math.max(200, summary.mistakePatterns.length * 50) + 'px' }}>
-            <Bar
-              data={{
-                labels: summary.mistakePatterns.map(m => m.mistake),
-                datasets: [
-                  {
-                    label: 'Count',
-                    data: summary.mistakePatterns.map(m => m.frequency),
-                    backgroundColor: summary.mistakePatterns.map(m => 
-                      m.avgPnl < -1000 ? 'rgba(239, 68, 68, 0.9)' : 
-                      m.avgPnl < 0 ? 'rgba(239, 68, 68, 0.7)' : 
-                      'rgba(239, 150, 68, 0.7)'
-                    ),
-                    borderColor: summary.mistakePatterns.map(m => 
-                      m.avgPnl < -1000 ? 'rgb(239, 68, 68)' : 
-                      m.avgPnl < 0 ? 'rgb(239, 68, 68)' : 
-                      'rgb(239, 150, 68)'
-                    ),
-                    borderWidth: 1,
-                    barThickness: window.innerWidth < 768 ? 25 : 35
-                  }
-                ]
-              }}
-              options={{
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                layout: {
-                  padding: {
-                    right: 40
-                  }
-                },
-                plugins: {
-                  legend: {
-                    display: false
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: (context) => {
-                        const mistake = summary.mistakePatterns[context.dataIndex];
-                        return [
-                          `Count: ${mistake.frequency} times`,
-                          `Avg P&L Impact: ₹${mistake.avgPnl.toFixed(2)}`
-                        ];
-                      }
+        <Card 
+          title={
+            <Space>
+              <span style={{ fontSize: '20px' }}>🚨</span>
+              <Text strong style={{ fontSize: '18px', color: '#ffffff' }}>
+                Common Mistakes Analysis
+              </Text>
+              <Tag color="volcano" style={{ marginLeft: '8px' }}>
+                {summary.mistakePatterns.reduce((sum, m) => sum + m.frequency, 0)} Total Mistakes
+              </Tag>
+            </Space>
+          }
+          style={{ 
+            background: 'linear-gradient(135deg, #1a1a1a 0%, #2d1b1b 100%)',
+            border: '1px solid #ff4757'
+          }}
+        >
+          {/* Modern Card Grid Layout */}
+          <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+            {summary.mistakePatterns.slice(0, 6).map((mistake, index) => {
+              const getGradientColors = (avgPnl, frequency) => {
+                if (avgPnl < -2000) return { from: '#ff1744', to: '#d50000', border: '#ff1744' }; // Very costly
+                if (avgPnl < -1000) return { from: '#ff4757', to: '#ff1744', border: '#ff4757' }; // Costly
+                if (avgPnl < -500) return { from: '#ff6b35', to: '#ff4757', border: '#ff6b35' }; // Moderate
+                if (avgPnl < 0) return { from: '#ffa726', to: '#ff6b35', border: '#ffa726' }; // Minor
+                return { from: '#ffcc02', to: '#ffa726', border: '#ffcc02' }; // Neutral/positive
+              };
+
+              const getIcon = (mistake) => {
+                const m = mistake.toLowerCase();
+                if (m.includes('fear') || m.includes('panic') || m.includes('anxious')) return '😰';
+                if (m.includes('greed') || m.includes('fomo')) return '🤑';
+                if (m.includes('stop') || m.includes('risk')) return '⚠️';
+                if (m.includes('exit') || m.includes('early')) return '🏃‍♂️';
+                if (m.includes('entry') || m.includes('timing')) return '🎯';
+                if (m.includes('plan') || m.includes('ignore')) return '📋';
+                if (m.includes('position') || m.includes('size')) return '📏';
+                return '🔴';
+              };
+
+              const colors = getGradientColors(mistake.avgPnl, mistake.frequency);
+              const severity = mistake.avgPnl < -1000 ? 'HIGH' : mistake.avgPnl < -500 ? 'MEDIUM' : 'LOW';
+              const severityColor = severity === 'HIGH' ? '#ff1744' : severity === 'MEDIUM' ? '#ff6b35' : '#ffa726';
+
+              return (
+                <Col xs={24} sm={12} md={8} lg={6} xl={4} key={index}>
+                  <Card
+                    size="small"
+                    hoverable
+                    style={{
+                      background: `linear-gradient(135deg, ${colors.from}15 0%, ${colors.to}25 100%)`,
+                      border: `2px solid ${colors.border}`,
+                      borderRadius: '12px',
+                      height: '100%',
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = `0 8px 25px ${colors.border}40`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0px)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <div style={{ textAlign: 'center', padding: '8px' }}>
+                      {/* Severity Badge */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <Tag 
+                          color={severity === 'HIGH' ? 'red' : severity === 'MEDIUM' ? 'orange' : 'yellow'}
+                          style={{ fontSize: '10px', margin: 0 }}
+                        >
+                          {severity}
+                        </Tag>
+                        <Text style={{ fontSize: '12px', color: '#999' }}>
+                          #{index + 1}
+                        </Text>
+                      </div>
+
+                      {/* Mistake Icon */}
+                      <div style={{ 
+                        fontSize: '32px', 
+                        marginBottom: '12px',
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                      }}>
+                        {getIcon(mistake.mistake)}
+                      </div>
+
+                      {/* Mistake Name */}
+                      <Text 
+                        strong 
+                        style={{ 
+                          fontSize: '13px', 
+                          color: '#ffffff', 
+                          textTransform: 'capitalize',
+                          display: 'block',
+                          marginBottom: '8px',
+                          minHeight: '32px'
+                        }}
+                      >
+                        {mistake.mistake}
+                      </Text>
+
+                      {/* Frequency Display */}
+                      <div style={{ 
+                        background: `linear-gradient(45deg, ${colors.border}30, ${colors.border}50)`,
+                        borderRadius: '8px',
+                        padding: '8px',
+                        marginBottom: '8px'
+                      }}>
+                        <Text style={{ fontSize: '20px', fontWeight: 'bold', color: colors.border }}>
+                          {mistake.frequency}
+                        </Text>
+                        <Text style={{ fontSize: '12px', color: '#cccccc', display: 'block' }}>
+                          occurrences
+                        </Text>
+                      </div>
+
+                      {/* P&L Impact */}
+                      <div style={{ 
+                        padding: '6px',
+                        borderRadius: '6px',
+                        background: mistake.avgPnl < 0 ? '#ff475710' : '#ffaa0010'
+                      }}>
+                        <Text style={{ 
+                          fontSize: '12px', 
+                          color: mistake.avgPnl < 0 ? '#ff4757' : '#ffaa00',
+                          fontWeight: 'bold'
+                        }}>
+                          ₹{mistake.avgPnl.toFixed(0)} avg impact
+                        </Text>
+                      </div>
+                    </div>
+                  </Card>
+                </Col>
+              );
+            })}
+          </Row>
+
+          {/* Summary Statistics */}
+          <Row gutter={[16, 16]} style={{ marginTop: '20px' }}>
+            <Col span={6}>
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '16px', 
+                background: 'linear-gradient(135deg, #ff4757 0%, #ff1744 100%)', 
+                borderRadius: '12px',
+                color: 'white'
+              }}>
+                <div style={{ fontSize: '24px', marginBottom: '4px' }}>🔥</div>
+                <Text style={{ color: 'white', fontSize: '11px' }}>MOST FREQUENT</Text>
+                <div style={{ fontSize: '14px', fontWeight: 'bold', marginTop: '4px' }}>
+                  {summary.mistakePatterns[0]?.mistake}
+                </div>
+                <Text style={{ color: '#ffcccc', fontSize: '11px' }}>
+                  {summary.mistakePatterns[0]?.frequency} times
+                </Text>
+              </div>
+            </Col>
+            <Col span={6}>
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '16px', 
+                background: 'linear-gradient(135deg, #ff1744 0%, #b71c1c 100%)', 
+                borderRadius: '12px',
+                color: 'white'
+              }}>
+                <div style={{ fontSize: '24px', marginBottom: '4px' }}>💸</div>
+                <Text style={{ color: 'white', fontSize: '11px' }}>MOST COSTLY</Text>
+                <div style={{ fontSize: '14px', fontWeight: 'bold', marginTop: '4px' }}>
+                  {summary.mistakePatterns.reduce((min, m) => m.avgPnl < min.avgPnl ? m : min, summary.mistakePatterns[0])?.mistake}
+                </div>
+                <Text style={{ color: '#ffcccc', fontSize: '11px' }}>
+                  ₹{summary.mistakePatterns.reduce((min, m) => m.avgPnl < min.avgPnl ? m : min, summary.mistakePatterns[0])?.avgPnl.toFixed(0)} avg
+                </Text>
+              </div>
+            </Col>
+            <Col span={6}>
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '16px', 
+                background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)', 
+                borderRadius: '12px',
+                color: 'white'
+              }}>
+                <div style={{ fontSize: '24px', marginBottom: '4px' }}>📊</div>
+                <Text style={{ color: 'white', fontSize: '11px' }}>TOTAL MISTAKES</Text>
+                <div style={{ fontSize: '20px', fontWeight: 'bold', marginTop: '4px' }}>
+                  {summary.mistakePatterns.reduce((sum, m) => sum + m.frequency, 0)}
+                </div>
+                <Text style={{ color: '#bbdefb', fontSize: '11px' }}>
+                  across {summary.totalTrades} trades
+                </Text>
+              </div>
+            </Col>
+            <Col span={6}>
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '16px', 
+                background: 'linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%)', 
+                borderRadius: '12px',
+                color: 'white'
+              }}>
+                <div style={{ fontSize: '24px', marginBottom: '4px' }}>📉</div>
+                <Text style={{ color: 'white', fontSize: '11px' }}>TOTAL IMPACT</Text>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', marginTop: '4px' }}>
+                  ₹{summary.mistakePatterns.reduce((sum, m) => sum + (m.avgPnl * m.frequency), 0).toFixed(0)}
+                </div>
+                <Text style={{ color: '#e1bee7', fontSize: '11px' }}>
+                  cumulative loss
+                </Text>
+              </div>
+            </Col>
+          </Row>
+
+          {/* Interactive Chart with Modern Styling */}
+          <div style={{ marginTop: '24px' }}>
+            <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text strong style={{ fontSize: '16px', color: '#ffffff' }}>
+                📈 Frequency & Impact Analysis
+              </Text>
+              <Tag color="processing">
+                Hover bars for details
+              </Tag>
+            </div>
+            <div style={{ 
+              height: window.innerWidth < 768 ? '300px' : Math.max(300, summary.mistakePatterns.length * 60) + 'px',
+              padding: '16px',
+              background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
+              borderRadius: '12px',
+              border: '1px solid #3a3a3a'
+            }}>
+              <Bar
+                data={{
+                  labels: summary.mistakePatterns.map(m => m.mistake),
+                  datasets: [
+                    {
+                      label: 'Frequency',
+                      data: summary.mistakePatterns.map(m => m.frequency),
+                      backgroundColor: summary.mistakePatterns.map((m, i) => {
+                        const severity = m.avgPnl < -1000 ? 'high' : m.avgPnl < -500 ? 'medium' : 'low';
+                        return severity === 'high' ? '#ff475780' : 
+                               severity === 'medium' ? '#ff6b3580' : '#ffa72680';
+                      }),
+                      borderColor: summary.mistakePatterns.map((m, i) => {
+                        const severity = m.avgPnl < -1000 ? 'high' : m.avgPnl < -500 ? 'medium' : 'low';
+                        return severity === 'high' ? '#ff4757' : 
+                               severity === 'medium' ? '#ff6b35' : '#ffa726';
+                      }),
+                      borderWidth: 3,
+                      borderRadius: 8,
+                      barThickness: window.innerWidth < 768 ? 30 : 40,
+                      borderSkipped: false
                     }
-                  }
-                },
-                scales: {
-                  x: {
-                    beginAtZero: true,
-                    ticks: {
-                      stepSize: 1,
-                      callback: (value) => Math.floor(value) === value ? value : ''
+                  ]
+                }}
+                options={{
+                  indexAxis: 'y',
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  layout: {
+                    padding: {
+                      right: 60,
+                      left: 10,
+                      top: 10,
+                      bottom: 10
+                    }
+                  },
+                  plugins: {
+                    legend: {
+                      display: false
                     },
-                    title: {
-                      display: true,
-                      text: 'Frequency Count'
-                    }
-                  },
-                  y: {
-                    ticks: {
-                      autoSkip: false,
-                      font: {
-                        size: window.innerWidth < 768 ? 11 : 12
+                    tooltip: {
+                      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                      borderColor: '#ff4757',
+                      borderWidth: 1,
+                      titleColor: '#ffffff',
+                      bodyColor: '#ffffff',
+                      cornerRadius: 8,
+                      callbacks: {
+                        title: (context) => {
+                          const mistake = summary.mistakePatterns[context[0].dataIndex];
+                          return `${mistake.mistake.toUpperCase()}`;
+                        },
+                        label: (context) => {
+                          const mistake = summary.mistakePatterns[context.dataIndex];
+                          return [
+                            `🔢 Frequency: ${mistake.frequency} times`,
+                            `💰 Avg Impact: ₹${mistake.avgPnl.toFixed(2)}`,
+                            `💸 Total Cost: ₹${(mistake.avgPnl * mistake.frequency).toFixed(2)}`,
+                            `📊 ${((mistake.frequency / summary.mistakePatterns.reduce((sum, m) => sum + m.frequency, 0)) * 100).toFixed(1)}% of all mistakes`
+                          ];
+                        }
                       }
                     }
+                  },
+                  scales: {
+                    x: {
+                      beginAtZero: true,
+                      grid: {
+                        color: 'rgba(255, 255, 255, 0.1)',
+                        lineWidth: 1
+                      },
+                      ticks: {
+                        stepSize: 1,
+                        color: '#cccccc',
+                        font: {
+                          size: 12,
+                          weight: 'bold'
+                        },
+                        callback: (value) => Math.floor(value) === value ? value : ''
+                      },
+                      title: {
+                        display: true,
+                        text: 'Frequency Count',
+                        color: '#ffffff',
+                        font: {
+                          size: 14,
+                          weight: 'bold'
+                        }
+                      }
+                    },
+                    y: {
+                      grid: {
+                        display: false
+                      },
+                      ticks: {
+                        autoSkip: false,
+                        color: '#ffffff',
+                        font: {
+                          size: window.innerWidth < 768 ? 11 : 13,
+                          weight: 'bold'
+                        },
+                        callback: function(value, index) {
+                          const label = this.getLabelForValue(value);
+                          return label.length > 15 ? label.substring(0, 15) + '...' : label;
+                        }
+                      }
+                    }
+                  },
+                  onHover: (event, activeElements) => {
+                    event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
                   }
-                }
-              }}
-              plugins={[{
-                id: 'customLabels',
-                afterDatasetsDraw: (chart) => {
-                  const ctx = chart.ctx;
-                  chart.data.datasets.forEach((dataset, i) => {
-                    const meta = chart.getDatasetMeta(i);
-                    meta.data.forEach((bar, index) => {
-                      const mistake = summary.mistakePatterns[index];
-                      const y = bar.y;
-                      
-                      // Draw count on the right side of the bar
-                      ctx.save();
-                      ctx.fillStyle = '#ffffff';
-                      ctx.font = `bold ${window.innerWidth < 768 ? '12px' : '14px'} sans-serif`;
-                      ctx.textAlign = 'left';
-                      ctx.textBaseline = 'middle';
-                      ctx.fillText(mistake.frequency, bar.x + bar.width + 5, y);
-                      ctx.restore();
+                }}
+                plugins={[{
+                  id: 'modernLabels',
+                  afterDatasetsDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    chart.data.datasets.forEach((dataset, i) => {
+                      const meta = chart.getDatasetMeta(i);
+                      meta.data.forEach((bar, index) => {
+                        const mistake = summary.mistakePatterns[index];
+                        const y = bar.y;
+                        
+                        // Modern count label with background
+                        ctx.save();
+                        
+                        // Draw background circle
+                        const radius = 16;
+                        ctx.beginPath();
+                        ctx.arc(bar.x + bar.width + 25, y, radius, 0, 2 * Math.PI);
+                        ctx.fillStyle = mistake.avgPnl < -1000 ? '#ff4757' : 
+                                        mistake.avgPnl < -500 ? '#ff6b35' : '#ffa726';
+                        ctx.fill();
+                        
+                        // Draw count text
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = `bold ${window.innerWidth < 768 ? '12px' : '14px'} sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(mistake.frequency, bar.x + bar.width + 25, y);
+                        
+                        ctx.restore();
+                      });
                     });
-                  });
-                }
-              }]}
-            />
+                  }
+                }]}
+              />
+            </div>
           </div>
-          <Divider />
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
-            <Row justify="space-between" style={{ marginBottom: '8px' }}>
-              <Col>
-                <Text strong>Total Mistakes:</Text>
-              </Col>
-              <Col>
-                <Text strong>{summary.mistakePatterns.reduce((sum, m) => sum + m.frequency, 0)}</Text>
-              </Col>
-            </Row>
-            {summary.mistakePatterns.map((mistake, index) => (
-              <Row key={index} justify="space-between">
-                <Col span={14}>
-                  <Text>{mistake.mistake}</Text>
-                </Col>
-                <Col span={4}>
-                  <Text type="secondary">{mistake.frequency}x</Text>
-                </Col>
-                <Col span={6} style={{ textAlign: 'right' }}>
-                  <Text style={{ color: mistake.avgPnl < 0 ? '#ff4757' : '#ffaa00' }}>
-                    ₹{mistake.avgPnl.toFixed(0)} avg
-                  </Text>
-                </Col>
+
+          {/* Actionable Insights */}
+          <div style={{ marginTop: '24px' }}>
+            <Card 
+              size="small" 
+              style={{ 
+                background: 'linear-gradient(135deg, #1a3d5c 0%, #2d4a66 100%)',
+                border: '1px solid #00d9ff'
+              }}
+            >
+              <Text strong style={{ fontSize: '16px', color: '#00d9ff' }}>
+                💡 Key Improvement Areas
+              </Text>
+              <Row gutter={[12, 12]} style={{ marginTop: '12px' }}>
+                {summary.mistakePatterns.slice(0, 3).map((mistake, index) => {
+                  const getRecommendation = (mistake) => {
+                    const m = mistake.mistake.toLowerCase();
+                    if (m.includes('fear') || m.includes('panic')) return 'Practice meditation before trading';
+                    if (m.includes('greed') || m.includes('fomo')) return 'Set daily profit targets and stick to them';
+                    if (m.includes('stop') || m.includes('risk')) return 'Always set stop loss before entry';
+                    if (m.includes('exit') || m.includes('early')) return 'Use trailing stops instead of manual exits';
+                    if (m.includes('entry') || m.includes('timing')) return 'Wait for complete setup confirmation';
+                    if (m.includes('plan')) return 'Write down plan before market open';
+                    return 'Review trading journal for patterns';
+                  };
+
+                  return (
+                    <Col span={8} key={index}>
+                      <div style={{
+                        padding: '12px',
+                        backgroundColor: '#2d4a66',
+                        borderRadius: '8px',
+                        border: '1px solid #00d9ff30',
+                        textAlign: 'center'
+                      }}>
+                        <Text style={{ fontSize: '12px', color: '#00d9ff', fontWeight: 'bold', textTransform: 'capitalize' }}>
+                          {mistake.mistake}
+                        </Text>
+                        <div style={{ marginTop: '8px', fontSize: '11px', color: '#b3e5fc' }}>
+                          {getRecommendation(mistake)}
+                        </div>
+                      </div>
+                    </Col>
+                  );
+                })}
               </Row>
-            ))}
-          </Space>
+            </Card>
+          </div>
         </Card>
       )}
 
