@@ -180,97 +180,64 @@ const Dashboard = () => {
 
       {/* Main Behavioral Metrics */}
       <Row gutter={[16, 16]}>
-        {/* Total P&L - Clickable */}
-        <Col xs={12} sm={12} md={6} lg={6}>
+        {/* Plan Follow Rate - First Priority */}
+        <Col xs={24} sm={12} md={8} lg={8}>
           <Card 
-            hoverable 
-            onClick={() => setPnlModalVisible(true)}
+            hoverable
+            onClick={async () => {
+              try {
+                const response = await api.get('/metrics/plan-deviation-analysis');
+                setDeviationData(response.data);
+                setPlanFollowModalVisible(true);
+              } catch (error) {
+                console.error('Error fetching deviation data:', error);
+                setPlanFollowModalVisible(true); // Still show modal even if deviation data fails
+              }
+            }}
             style={{ 
-              cursor: 'pointer', 
-              height: '100%',
-              transition: 'all 0.2s ease',
-              border: '1px solid #3a3a3a'
+              height: '100%', 
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#ff006b';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 0, 107, 0.2)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.3)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#3a3a3a';
+              e.currentTarget.style.transform = 'translateY(0px)';
               e.currentTarget.style.boxShadow = 'none';
             }}
           >
-            <div style={{ pointerEvents: 'none' }}>
-              <Statistic
-                title={
-                  <div>
-                    Total P&L
-                    <Text type="secondary" style={{ fontSize: '11px', marginLeft: '8px' }}>
-                      ({summary.totalTrades} trades)
-                    </Text>
-                  </div>
-                }
-                value={summary.totalPnl}
-                precision={2}
-                prefix="₹"
-                valueStyle={{
-                  color: summary.totalPnl >= 0 ? '#00ff88' : '#ff4757',
-                  fontSize: window.innerWidth < 768 ? '20px' : '28px'
-                }}
-                suffix={
-                  summary.totalPnl >= 0 ? 
-                  <RiseOutlined style={{ fontSize: '18px' }} /> : 
-                  <FallOutlined style={{ fontSize: '18px' }} />
-                }
-              />
-            </div>
-          </Card>
-        </Col>
-
-        {/* Win Rate - Circular Progress */}
-        <Col xs={12} sm={12} md={6} lg={6}>
-          <Card 
-            hoverable 
-            onClick={() => setWinRateModalVisible(true)}
-            style={{ 
-              cursor: 'pointer', 
-              height: '100%',
-              transition: 'all 0.2s ease',
-              border: '1px solid #3a3a3a'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#ff006b';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 0, 107, 0.2)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#3a3a3a';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            <div style={{ textAlign: 'center', pointerEvents: 'none' }}>
-              <Text type="secondary">Win Rate</Text>
+            <div style={{ textAlign: 'center' }}>
+              <Text type="secondary">Plan Follow Rate</Text>
               <Progress
                 type="circle"
-                percent={summary.winRate}
-                strokeColor={{
-                  '0%': '#ff4757',
-                  '100%': '#00ff88'
-                }}
-                format={(percent) => `${percent.toFixed(1)}%`}
+                percent={summary.planFollowRate}
+                strokeColor={getPlanFollowColor(summary.planFollowRate)}
+                format={(percent) => `${percent.toFixed(0)}%`}
                 width={window.innerWidth < 768 ? 80 : 120}
                 strokeWidth={window.innerWidth < 768 ? 8 : 6}
               />
               <div style={{ marginTop: '8px' }}>
-                <Text type="secondary" style={{ fontSize: '12px' }}>
-                  {summary.winningTrades}W / {summary.losingTrades}L
+                <Text 
+                  style={{ 
+                    fontSize: '12px', 
+                    color: getPlanFollowColor(summary.planFollowRate) 
+                  }}
+                >
+                  {getPlanFollowText(summary.planFollowRate)}
+                </Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: '11px' }}>
+                  {summary.tradesWithPlanFollowed}/{summary.totalTrades} trades
                 </Text>
               </div>
             </div>
           </Card>
         </Col>
 
-        {/* Avg R-Multiple - Clickable */}
-        <Col xs={12} sm={12} md={6} lg={6}>
+        {/* R-Multiple - Second Priority */}
+        <Col xs={24} sm={12} md={8} lg={8}>
           <Card 
             hoverable 
             onClick={fetchWeeklyRMultipleData}
@@ -323,56 +290,42 @@ const Dashboard = () => {
           </Card>
         </Col>
 
-        {/* Plan Follow Rate - Circular Progress with Color */}
-        <Col xs={12} sm={12} md={6} lg={6}>
+        {/* Win Rate - Third Priority */}
+        <Col xs={24} sm={12} md={8} lg={8}>
           <Card 
-            hoverable
-            onClick={async () => {
-              try {
-                const response = await api.get('/metrics/plan-deviation-analysis');
-                setDeviationData(response.data);
-                setPlanFollowModalVisible(true);
-              } catch (error) {
-                console.error('Error fetching deviation data:', error);
-                setPlanFollowModalVisible(true); // Still show modal even if deviation data fails
-              }
-            }}
+            hoverable 
+            onClick={() => setWinRateModalVisible(true)}
             style={{ 
-              height: '100%', 
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
+              cursor: 'pointer', 
+              height: '100%',
+              transition: 'all 0.2s ease',
+              border: '1px solid #3a3a3a'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.3)';
+              e.currentTarget.style.borderColor = '#ff006b';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 0, 107, 0.2)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0px)';
+              e.currentTarget.style.borderColor = '#3a3a3a';
               e.currentTarget.style.boxShadow = 'none';
             }}
           >
-            <div style={{ textAlign: 'center' }}>
-              <Text type="secondary">Plan Follow Rate</Text>
+            <div style={{ textAlign: 'center', pointerEvents: 'none' }}>
+              <Text type="secondary">Win Rate</Text>
               <Progress
                 type="circle"
-                percent={summary.planFollowRate}
-                strokeColor={getPlanFollowColor(summary.planFollowRate)}
-                format={(percent) => `${percent.toFixed(0)}%`}
+                percent={summary.winRate}
+                strokeColor={{
+                  '0%': '#ff4757',
+                  '100%': '#00ff88'
+                }}
+                format={(percent) => `${percent.toFixed(1)}%`}
                 width={window.innerWidth < 768 ? 80 : 120}
                 strokeWidth={window.innerWidth < 768 ? 8 : 6}
               />
               <div style={{ marginTop: '8px' }}>
-                <Text 
-                  style={{ 
-                    fontSize: '12px', 
-                    color: getPlanFollowColor(summary.planFollowRate) 
-                  }}
-                >
-                  {getPlanFollowText(summary.planFollowRate)}
-                </Text>
-                <br />
-                <Text type="secondary" style={{ fontSize: '11px' }}>
-                  {summary.tradesWithPlanFollowed}/{summary.totalTrades} trades
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  {summary.winningTrades}W / {summary.losingTrades}L
                 </Text>
               </div>
             </div>
@@ -441,8 +394,13 @@ const Dashboard = () => {
       {/* Charts */}
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
-          <Card title="Equity Curve">
-            <div style={{ height: window.innerWidth < 768 ? '250px' : '300px' }}>
+          <Card 
+            title="Equity Curve"
+            hoverable
+            onClick={() => setPnlModalVisible(true)}
+            style={{ cursor: 'pointer' }}
+          >
+            <div style={{ height: window.innerWidth < 768 ? '250px' : '300px', pointerEvents: 'none' }}>
               <Line 
                 data={equityChartData} 
                 options={{ 
@@ -451,6 +409,11 @@ const Dashboard = () => {
                   plugins: {
                     legend: {
                       display: window.innerWidth >= 768
+                    },
+                    tooltip: {
+                      callbacks: {
+                        afterBody: () => ['Click for detailed P&L analysis']
+                      }
                     }
                   },
                   scales: {
