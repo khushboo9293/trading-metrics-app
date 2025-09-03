@@ -432,10 +432,23 @@ router.post('/populate-tags', authenticateToken, async (req, res) => {
     
     // Insert tags (ignore duplicates)
     for (const tag of defaultTags) {
-      await database.run(
-        'INSERT OR IGNORE INTO mistake_tags (tag_name, category, description) VALUES (?, ?, ?)',
-        [tag.tag_name, tag.category, tag.description]
-      );
+      try {
+        if (process.env.DATABASE_URL) {
+          // PostgreSQL syntax
+          await database.run(
+            'INSERT INTO mistake_tags (tag_name, category, description) VALUES (?, ?, ?) ON CONFLICT (tag_name) DO NOTHING',
+            [tag.tag_name, tag.category, tag.description]
+          );
+        } else {
+          // SQLite syntax
+          await database.run(
+            'INSERT OR IGNORE INTO mistake_tags (tag_name, category, description) VALUES (?, ?, ?)',
+            [tag.tag_name, tag.category, tag.description]
+          );
+        }
+      } catch (err) {
+        // Ignore duplicate errors
+      }
     }
     
     res.json({ message: 'Tags populated successfully', count: defaultTags.length });
@@ -506,10 +519,20 @@ router.post('/emotion-tags', authenticateToken, async (req, res) => {
       res.json({ ...existing, usage_count: existing.usage_count + 1 });
     } else {
       // Create new tag
-      const result = await database.run(
-        'INSERT INTO emotional_state_tags (user_id, tag_name) VALUES (?, ?)',
-        [req.userId, tag_name.trim().toLowerCase()]
-      );
+      let result;
+      if (process.env.DATABASE_URL) {
+        // PostgreSQL - returns ID directly
+        result = await database.run(
+          'INSERT INTO emotional_state_tags (user_id, tag_name) VALUES (?, ?)',
+          [req.userId, tag_name.trim().toLowerCase()]
+        );
+      } else {
+        // SQLite
+        result = await database.run(
+          'INSERT INTO emotional_state_tags (user_id, tag_name) VALUES (?, ?)',
+          [req.userId, tag_name.trim().toLowerCase()]
+        );
+      }
       
       const newTag = await database.get(
         'SELECT * FROM emotional_state_tags WHERE id = ?',

@@ -347,16 +347,41 @@ async function updateDailyMetrics(database, userId, tradeDate) {
   const planAdherence = totalTrades > 0 ? (trades.filter(t => t.followed_plan).length / totalTrades) * 100 : 0;
   const mistakeFrequency = totalTrades > 0 ? (trades.filter(t => t.mistakes).length / totalTrades) * 100 : 0;
   
-  await database.run(
-    `INSERT OR REPLACE INTO daily_metrics (
-      user_id, date, total_trades, winning_trades, losing_trades,
-      total_pnl, win_rate, avg_r_multiple, plan_adherence_rate, mistake_frequency
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      userId, tradeDate, totalTrades, winningTrades, losingTrades,
-      totalPnl, winRate, avgRMultiple, planAdherence, mistakeFrequency
-    ]
-  );
+  if (process.env.DATABASE_URL) {
+    // PostgreSQL - use ON CONFLICT
+    await database.run(
+      `INSERT INTO daily_metrics (
+        user_id, date, total_trades, winning_trades, losing_trades,
+        total_pnl, win_rate, avg_r_multiple, plan_adherence_rate, mistake_frequency
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (user_id, date) 
+      DO UPDATE SET 
+        total_trades = EXCLUDED.total_trades,
+        winning_trades = EXCLUDED.winning_trades,
+        losing_trades = EXCLUDED.losing_trades,
+        total_pnl = EXCLUDED.total_pnl,
+        win_rate = EXCLUDED.win_rate,
+        avg_r_multiple = EXCLUDED.avg_r_multiple,
+        plan_adherence_rate = EXCLUDED.plan_adherence_rate,
+        mistake_frequency = EXCLUDED.mistake_frequency`,
+      [
+        userId, tradeDate, totalTrades, winningTrades, losingTrades,
+        totalPnl, winRate, avgRMultiple, planAdherence, mistakeFrequency
+      ]
+    );
+  } else {
+    // SQLite - use INSERT OR REPLACE
+    await database.run(
+      `INSERT OR REPLACE INTO daily_metrics (
+        user_id, date, total_trades, winning_trades, losing_trades,
+        total_pnl, win_rate, avg_r_multiple, plan_adherence_rate, mistake_frequency
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        userId, tradeDate, totalTrades, winningTrades, losingTrades,
+        totalPnl, winRate, avgRMultiple, planAdherence, mistakeFrequency
+      ]
+    );
+  }
 }
 
 export default router;
