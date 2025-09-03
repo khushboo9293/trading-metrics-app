@@ -168,34 +168,35 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
     let skipped = 0;
     
     for (const row of data) {
-      // Check for duplicate based on date, underlying, entry, and exit prices
-      const existing = await database.get(
-        `SELECT id FROM trades WHERE user_id = ? AND trade_date = ? AND underlying = ? 
-         AND entry_price = ? AND exit_price = ?`,
-        [req.userId, row['Date'], row['Underlying'], row['Entry Price'], row['Exit Price']]
-      );
-      
-      if (existing) {
-        skipped++;
-        continue;
-      }
-      
-      // Calculate metrics
-      const metrics = calculateMetrics({
-        entry_price: row['Entry Price'],
-        exit_price: row['Exit Price'],
-        stop_loss: row['Stop Loss'] || null,
-        quantity: row['Quantity']
-      });
-      
-      // Insert trade
-      await database.run(
+      try {
+        // Check for duplicate based on date, underlying, entry, and exit prices
+        const existing = await database.get(
+          `SELECT id FROM trades WHERE user_id = ? AND trade_date = ? AND underlying = ? 
+           AND entry_price = ? AND exit_price = ?`,
+          [req.userId, row['Date'], row['Underlying'], row['Entry Price'], row['Exit Price']]
+        );
+        
+        if (existing) {
+          skipped++;
+          continue;
+        }
+        
+        // Calculate metrics
+        const metrics = calculateMetrics({
+          entry_price: row['Entry Price'],
+          exit_price: row['Exit Price'],
+          stop_loss: row['Stop Loss'] || null,
+          quantity: row['Quantity']
+        });
+        
+        // Insert trade
+        await database.run(
         `INSERT INTO trades (
           user_id, underlying, option_type, breakout_type, nifty_range, 
           strike_price, entry_price, stop_loss, exit_price, quantity, lot_size,
-          trade_date, followed_plan, mistakes, notes,
+          trade_date, followed_plan, mistakes, emotional_state_entry, emotional_state_exit, notes,
           pnl, return_percentage, risk_amount, r_multiple
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.userId,
           row['Underlying'],
@@ -224,6 +225,11 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
       // Update daily metrics for imported trade
       await updateDailyMetrics(database, req.userId, row['Date']);
       imported++;
+      } catch (rowError) {
+        console.error(`Error importing row ${imported + skipped + 1}:`, rowError);
+        console.error('Row data:', row);
+        // Continue with next row
+      }
     }
     
     res.json({ 
