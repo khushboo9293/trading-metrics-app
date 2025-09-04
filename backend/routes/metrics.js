@@ -786,4 +786,192 @@ function calculateMaxDrawdown(trades) {
   return Math.round(maxDrawdown * 100) / 100;
 }
 
+// Nifty vs Non-Nifty Analysis endpoint
+router.get('/nifty-comparison', authenticateToken, async (req, res) => {
+  try {
+    const db = new Database();
+    await db.init();
+    const database = db.getDb();
+    
+    // Get all trades for the user
+    const allTrades = await database.all(
+      `SELECT * FROM trades WHERE user_id = ? ORDER BY trade_date DESC`,
+      [req.userId]
+    );
+    
+    // Separate Nifty and Non-Nifty trades
+    const niftyTrades = allTrades.filter(t => {
+      const underlying = t.underlying ? t.underlying.toLowerCase() : '';
+      return underlying.includes('nifty') || underlying === 'nf';
+    });
+    
+    const nonNiftyTrades = allTrades.filter(t => {
+      const underlying = t.underlying ? t.underlying.toLowerCase() : '';
+      return !underlying.includes('nifty') && underlying !== 'nf';
+    });
+    
+    // Calculate metrics for Nifty trades
+    const niftyMetrics = calculateBucketMetrics(niftyTrades);
+    
+    // Calculate metrics for Non-Nifty trades
+    const nonNiftyMetrics = calculateBucketMetrics(nonNiftyTrades);
+    
+    // Get common mistakes for each bucket
+    const niftyMistakes = analyzeCommonMistakes(niftyTrades);
+    const nonNiftyMistakes = analyzeCommonMistakes(nonNiftyTrades);
+    
+    res.json({
+      nifty: {
+        ...niftyMetrics,
+        commonMistakes: niftyMistakes,
+        trades: niftyTrades.length
+      },
+      nonNifty: {
+        ...nonNiftyMetrics,
+        commonMistakes: nonNiftyMistakes,
+        trades: nonNiftyTrades.length
+      },
+      totalTrades: allTrades.length,
+      breakdown: {
+        niftyPercentage: allTrades.length > 0 ? (niftyTrades.length / allTrades.length) * 100 : 0,
+        nonNiftyPercentage: allTrades.length > 0 ? (nonNiftyTrades.length / allTrades.length) * 100 : 0
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching Nifty comparison data:', error);
+    res.status(500).json({ error: 'Failed to fetch Nifty comparison data' });
+  }
+});
+
+function calculateBucketMetrics(trades) {
+  if (trades.length === 0) {
+    return {
+      totalPnl: 0,
+      avgPnl: 0,
+      winRate: 0,
+      avgRMultiple: 0,
+      avgRMultipleWinning: 0,
+      avgRMultipleLosing: 0,
+      totalProfit: 0,
+      totalLoss: 0,
+      planFollowRate: 0,
+      bestTrade: 0,
+      worstTrade: 0,
+      avgHoldTime: 0
+    };
+  }
+  
+  const winningTrades = trades.filter(t => t.pnl > 0);
+  const losingTrades = trades.filter(t => t.pnl <= 0);
+  const tradesWithStopLoss = trades.filter(t => t.r_multiple !== null && t.r_multiple !== undefined);
+  const winningTradesWithSL = tradesWithStopLoss.filter(t => t.pnl > 0);
+  const losingTradesWithSL = tradesWithStopLoss.filter(t => t.pnl <= 0);
+  const tradesWithPlanFollowed = trades.filter(t => t.followed_plan === 1 || t.followed_plan === true);
+  
+  const totalPnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+  const totalProfit = winningTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+  const totalLoss = Math.abs(losingTrades.reduce((sum, t) => sum + (t.pnl || 0), 0));
+  
+  const avgRMultiple = tradesWithStopLoss.length > 0 
+    ? tradesWithStopLoss.reduce((sum, t) => sum + t.r_multiple, 0) / tradesWithStopLoss.length 
+    : 0;
+  
+  const avgRMultipleWinning = winningTradesWithSL.length > 0
+    ? winningTradesWithSL.reduce((sum, t) => sum + t.r_multiple, 0) / winningTradesWithSL.length 
+    : 0;
+    
+  const avgRMultipleLosing = losingTradesWithSL.length > 0
+    ? losingTradesWithSL.reduce((sum, t) => sum + t.r_multiple, 0) / losingTradesWithSL.length 
+    : 0;
+  
+  const bestTrade = Math.max(...trades.map(t => t.pnl || 0), 0);
+  const worstTrade = Math.min(...trades.map(t => t.pnl || 0), 0);
+  
+  return {
+    totalPnl: Math.round(totalPnl * 100) / 100,
+    avgPnl: Math.round((totalPnl / trades.length) * 100) / 100,
+    winRate: Math.round((winningTrades.length / trades.length) * 100 * 100) / 100,
+    avgRMultiple: Math.round(avgRMultiple * 100) / 100,
+    avgRMultipleWinning: Math.round(avgRMultipleWinning * 100) / 100,
+    avgRMultipleLosing: Math.round(avgRMultipleLosing * 100) / 100,
+    totalProfit: Math.round(totalProfit * 100) / 100,
+    totalLoss: Math.round(totalLoss * 100) / 100,
+    planFollowRate: Math.round((tradesWithPlanFollowed.length / trades.length) * 100 * 100) / 100,
+    bestTrade: Math.round(bestTrade * 100) / 100,
+    worstTrade: Math.round(worstTrade * 100) / 100,
+    profitFactor: totalLoss > 0 ? Math.round((totalProfit / totalLoss) * 100) / 100 : 0,
+    winningTrades: winningTrades.length,
+    losingTrades: losingTrades.length
+  };
+}
+
+function analyzeCommonMistakes(trades) {
+  const mistakeFrequency = {};
+  const emotionalPatterns = {
+    entry: {},
+    exit: {}
+  };
+  
+  trades.forEach(trade => {
+    // Count mistakes
+    if (trade.mistakes) {
+      const mistakes = trade.mistakes.split(',').map(m => m.trim().toLowerCase()).filter(m => m);
+      mistakes.forEach(mistake => {
+        mistakeFrequency[mistake] = (mistakeFrequency[mistake] || 0) + 1;
+      });
+    }
+    
+    // Analyze emotional states
+    if (trade.emotional_state_entry) {
+      const emotions = trade.emotional_state_entry.split(',').map(e => e.trim().toLowerCase()).filter(e => e);
+      emotions.forEach(emotion => {
+        emotionalPatterns.entry[emotion] = (emotionalPatterns.entry[emotion] || 0) + 1;
+      });
+    }
+    
+    if (trade.emotional_state_exit) {
+      const emotions = trade.emotional_state_exit.split(',').map(e => e.trim().toLowerCase()).filter(e => e);
+      emotions.forEach(emotion => {
+        emotionalPatterns.exit[emotion] = (emotionalPatterns.exit[emotion] || 0) + 1;
+      });
+    }
+  });
+  
+  // Sort and get top mistakes
+  const topMistakes = Object.entries(mistakeFrequency)
+    .map(([mistake, count]) => ({
+      mistake,
+      count,
+      percentage: trades.length > 0 ? ((count / trades.length) * 100).toFixed(1) : 0
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+  
+  // Get most common emotional states
+  const topEntryEmotions = Object.entries(emotionalPatterns.entry)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([emotion, count]) => ({
+      emotion,
+      count,
+      percentage: trades.length > 0 ? ((count / trades.length) * 100).toFixed(1) : 0
+    }));
+  
+  const topExitEmotions = Object.entries(emotionalPatterns.exit)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([emotion, count]) => ({
+      emotion,
+      count,
+      percentage: trades.length > 0 ? ((count / trades.length) * 100).toFixed(1) : 0
+    }));
+  
+  return {
+    topMistakes,
+    topEntryEmotions,
+    topExitEmotions,
+    totalMistakeTypes: Object.keys(mistakeFrequency).length
+  };
+}
+
 export default router;

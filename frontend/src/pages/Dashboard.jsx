@@ -64,6 +64,8 @@ const Dashboard = () => {
   const [weeklyPlanVisible, setWeeklyPlanVisible] = useState(false);
   const [weeklyWinRateData, setWeeklyWinRateData] = useState([]);
   const [weeklyWinRateVisible, setWeeklyWinRateVisible] = useState(false);
+  const [niftyComparison, setNiftyComparison] = useState(null);
+  const [niftyComparisonVisible, setNiftyComparisonVisible] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -112,6 +114,16 @@ const Dashboard = () => {
       setWeeklyWinRateVisible(true);
     } catch (error) {
       console.error('Error fetching weekly win rate data:', error);
+    }
+  };
+
+  const fetchNiftyComparison = async () => {
+    try {
+      const response = await api.get('/metrics/nifty-comparison');
+      setNiftyComparison(response.data);
+      setNiftyComparisonVisible(true);
+    } catch (error) {
+      console.error('Error fetching Nifty comparison data:', error);
     }
   };
 
@@ -402,6 +414,50 @@ const Dashboard = () => {
                 fontSize: window.innerWidth < 768 ? '20px' : '24px'
               }}
             />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Nifty vs Non-Nifty Comparison */}
+      <Row gutter={[16, 16]} style={{ marginTop: '16px' }}>
+        <Col span={24}>
+          <Card 
+            title="📊 Nifty vs Non-Nifty Analysis"
+            hoverable
+            onClick={fetchNiftyComparison}
+            style={{ 
+              cursor: 'pointer',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+            }}
+          >
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={12}>
+                <div style={{ textAlign: 'center' }}>
+                  <Text style={{ fontSize: '16px', fontWeight: 'bold', color: '#ffffff' }}>
+                    Nifty Trades
+                  </Text>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '8px' }}>
+                    Click to Analyze
+                  </div>
+                  <Text type="secondary" style={{ color: '#f0f0f0' }}>
+                    Compare performance between index and stock trades
+                  </Text>
+                </div>
+              </Col>
+              <Col xs={24} sm={12}>
+                <div style={{ textAlign: 'center' }}>
+                  <Text style={{ fontSize: '16px', fontWeight: 'bold', color: '#ffffff' }}>
+                    Breakdown Insights
+                  </Text>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '8px' }}>
+                    Mistakes & Patterns
+                  </div>
+                  <Text type="secondary" style={{ color: '#f0f0f0' }}>
+                    Identify strengths and weaknesses in each segment
+                  </Text>
+                </div>
+              </Col>
+            </Row>
           </Card>
         </Col>
       </Row>
@@ -2148,6 +2204,262 @@ const Dashboard = () => {
             </Col>
           </Row>
         </Card>
+      </Modal>
+
+      {/* Nifty vs Non-Nifty Comparison Modal */}
+      <Modal
+        title="Nifty vs Non-Nifty Performance Analysis"
+        open={niftyComparisonVisible}
+        onCancel={() => setNiftyComparisonVisible(false)}
+        footer={null}
+        width={window.innerWidth < 768 ? '95vw' : 1000}
+      >
+        {niftyComparison && (
+          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            {/* Trade Distribution */}
+            <Card style={{ backgroundColor: '#1a1a1a' }}>
+              <Row gutter={[16, 16]}>
+                <Col xs={24} sm={8}>
+                  <div style={{ textAlign: 'center' }}>
+                    <Text type="secondary">Total Trades</Text>
+                    <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#ffffff' }}>
+                      {niftyComparison.totalTrades}
+                    </div>
+                  </div>
+                </Col>
+                <Col xs={24} sm={8}>
+                  <div style={{ textAlign: 'center' }}>
+                    <Progress
+                      type="circle"
+                      percent={Math.round(niftyComparison.breakdown.niftyPercentage)}
+                      strokeColor="#667eea"
+                      format={() => (
+                        <div>
+                          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{niftyComparison.nifty.trades}</div>
+                          <div style={{ fontSize: '12px', color: '#999' }}>Nifty</div>
+                        </div>
+                      )}
+                      width={100}
+                    />
+                  </div>
+                </Col>
+                <Col xs={24} sm={8}>
+                  <div style={{ textAlign: 'center' }}>
+                    <Progress
+                      type="circle"
+                      percent={Math.round(niftyComparison.breakdown.nonNiftyPercentage)}
+                      strokeColor="#764ba2"
+                      format={() => (
+                        <div>
+                          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{niftyComparison.nonNifty.trades}</div>
+                          <div style={{ fontSize: '12px', color: '#999' }}>Stocks</div>
+                        </div>
+                      )}
+                      width={100}
+                    />
+                  </div>
+                </Col>
+              </Row>
+            </Card>
+
+            {/* Performance Comparison Table */}
+            <Card title="📊 Performance Metrics Comparison" style={{ backgroundColor: '#1a1a1a' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #3a3a3a' }}>
+                    <th style={{ padding: '12px', textAlign: 'left', color: '#999' }}>Metric</th>
+                    <th style={{ padding: '12px', textAlign: 'center', color: '#667eea' }}>Nifty</th>
+                    <th style={{ padding: '12px', textAlign: 'center', color: '#764ba2' }}>Non-Nifty</th>
+                    <th style={{ padding: '12px', textAlign: 'center', color: '#999' }}>Difference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #3a3a3a' }}>
+                    <td style={{ padding: '12px', color: '#ccc' }}>Total P&L</td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: niftyComparison.nifty.totalPnl >= 0 ? '#00ff88' : '#ff4757' }}>
+                      ₹{niftyComparison.nifty.totalPnl}
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: niftyComparison.nonNifty.totalPnl >= 0 ? '#00ff88' : '#ff4757' }}>
+                      ₹{niftyComparison.nonNifty.totalPnl}
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: '#ffaa00' }}>
+                      ₹{(niftyComparison.nifty.totalPnl - niftyComparison.nonNifty.totalPnl).toFixed(2)}
+                    </td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #3a3a3a' }}>
+                    <td style={{ padding: '12px', color: '#ccc' }}>Win Rate</td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: niftyComparison.nifty.winRate >= 50 ? '#00ff88' : '#ff4757' }}>
+                      {niftyComparison.nifty.winRate}%
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: niftyComparison.nonNifty.winRate >= 50 ? '#00ff88' : '#ff4757' }}>
+                      {niftyComparison.nonNifty.winRate}%
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: '#ffaa00' }}>
+                      {(niftyComparison.nifty.winRate - niftyComparison.nonNifty.winRate).toFixed(1)}%
+                    </td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #3a3a3a' }}>
+                    <td style={{ padding: '12px', color: '#ccc' }}>Avg R-Multiple</td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: niftyComparison.nifty.avgRMultiple >= 0 ? '#00ff88' : '#ff4757' }}>
+                      {niftyComparison.nifty.avgRMultiple}R
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: niftyComparison.nonNifty.avgRMultiple >= 0 ? '#00ff88' : '#ff4757' }}>
+                      {niftyComparison.nonNifty.avgRMultiple}R
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: '#ffaa00' }}>
+                      {(niftyComparison.nifty.avgRMultiple - niftyComparison.nonNifty.avgRMultiple).toFixed(2)}R
+                    </td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #3a3a3a' }}>
+                    <td style={{ padding: '12px', color: '#ccc' }}>Plan Follow Rate</td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: niftyComparison.nifty.planFollowRate >= 80 ? '#00ff88' : '#ff4757' }}>
+                      {niftyComparison.nifty.planFollowRate}%
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: niftyComparison.nonNifty.planFollowRate >= 80 ? '#00ff88' : '#ff4757' }}>
+                      {niftyComparison.nonNifty.planFollowRate}%
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: '#ffaa00' }}>
+                      {(niftyComparison.nifty.planFollowRate - niftyComparison.nonNifty.planFollowRate).toFixed(1)}%
+                    </td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #3a3a3a' }}>
+                    <td style={{ padding: '12px', color: '#ccc' }}>Profit Factor</td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: niftyComparison.nifty.profitFactor >= 1.5 ? '#00ff88' : '#ff4757' }}>
+                      {niftyComparison.nifty.profitFactor}
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: niftyComparison.nonNifty.profitFactor >= 1.5 ? '#00ff88' : '#ff4757' }}>
+                      {niftyComparison.nonNifty.profitFactor}
+                    </td>
+                    <td style={{ padding: '12px', textAlign: 'center', color: '#ffaa00' }}>
+                      {(niftyComparison.nifty.profitFactor - niftyComparison.nonNifty.profitFactor).toFixed(2)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Card>
+
+            {/* Common Mistakes Comparison */}
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <Card 
+                  title="🎯 Nifty - Common Mistakes" 
+                  style={{ backgroundColor: '#1a1a1a', height: '100%' }}
+                  headStyle={{ backgroundColor: '#667eea20', borderBottom: '2px solid #667eea' }}
+                >
+                  {niftyComparison.nifty.commonMistakes.topMistakes.length > 0 ? (
+                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                      {niftyComparison.nifty.commonMistakes.topMistakes.map((mistake, index) => (
+                        <div key={index} style={{ 
+                          padding: '8px', 
+                          backgroundColor: '#2d2d2d', 
+                          borderRadius: '4px',
+                          display: 'flex',
+                          justifyContent: 'space-between'
+                        }}>
+                          <Text style={{ color: '#ffffff', textTransform: 'capitalize' }}>
+                            {index + 1}. {mistake.mistake}
+                          </Text>
+                          <Tag color="blue">{mistake.percentage}%</Tag>
+                        </div>
+                      ))}
+                    </Space>
+                  ) : (
+                    <Text type="secondary">No mistakes recorded</Text>
+                  )}
+                </Card>
+              </Col>
+              <Col xs={24} md={12}>
+                <Card 
+                  title="📈 Non-Nifty - Common Mistakes" 
+                  style={{ backgroundColor: '#1a1a1a', height: '100%' }}
+                  headStyle={{ backgroundColor: '#764ba220', borderBottom: '2px solid #764ba2' }}
+                >
+                  {niftyComparison.nonNifty.commonMistakes.topMistakes.length > 0 ? (
+                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                      {niftyComparison.nonNifty.commonMistakes.topMistakes.map((mistake, index) => (
+                        <div key={index} style={{ 
+                          padding: '8px', 
+                          backgroundColor: '#2d2d2d', 
+                          borderRadius: '4px',
+                          display: 'flex',
+                          justifyContent: 'space-between'
+                        }}>
+                          <Text style={{ color: '#ffffff', textTransform: 'capitalize' }}>
+                            {index + 1}. {mistake.mistake}
+                          </Text>
+                          <Tag color="purple">{mistake.percentage}%</Tag>
+                        </div>
+                      ))}
+                    </Space>
+                  ) : (
+                    <Text type="secondary">No mistakes recorded</Text>
+                  )}
+                </Card>
+              </Col>
+            </Row>
+
+            {/* Insights and Recommendations */}
+            <Card style={{ backgroundColor: '#1a1a1a' }}>
+              <Text strong style={{ fontSize: '18px', color: '#00d9ff' }}>💡 Key Insights</Text>
+              <div style={{ marginTop: '16px' }}>
+                <ul style={{ paddingLeft: '20px', color: '#cccccc' }}>
+                  {niftyComparison.nifty.winRate > niftyComparison.nonNifty.winRate && (
+                    <li style={{ marginBottom: '8px', color: '#00ff88' }}>
+                      <strong>Better Win Rate on Nifty:</strong> You perform {(niftyComparison.nifty.winRate - niftyComparison.nonNifty.winRate).toFixed(1)}% better on index trades
+                    </li>
+                  )}
+                  {niftyComparison.nonNifty.winRate > niftyComparison.nifty.winRate && (
+                    <li style={{ marginBottom: '8px', color: '#00ff88' }}>
+                      <strong>Better Win Rate on Stocks:</strong> You perform {(niftyComparison.nonNifty.winRate - niftyComparison.nifty.winRate).toFixed(1)}% better on stock trades
+                    </li>
+                  )}
+                  {niftyComparison.nifty.avgRMultiple > niftyComparison.nonNifty.avgRMultiple && (
+                    <li style={{ marginBottom: '8px', color: '#00ff88' }}>
+                      <strong>Superior Risk Management on Nifty:</strong> Your R-Multiple is {(niftyComparison.nifty.avgRMultiple - niftyComparison.nonNifty.avgRMultiple).toFixed(2)}R higher on index trades
+                    </li>
+                  )}
+                  {niftyComparison.nifty.planFollowRate < 70 && (
+                    <li style={{ marginBottom: '8px', color: '#ff4757' }}>
+                      <strong>Discipline Issue on Nifty:</strong> Only {niftyComparison.nifty.planFollowRate}% plan adherence - needs improvement
+                    </li>
+                  )}
+                  {niftyComparison.nonNifty.planFollowRate < 70 && (
+                    <li style={{ marginBottom: '8px', color: '#ff4757' }}>
+                      <strong>Discipline Issue on Stocks:</strong> Only {niftyComparison.nonNifty.planFollowRate}% plan adherence - needs improvement
+                    </li>
+                  )}
+                </ul>
+              </div>
+              
+              <Divider />
+              
+              <Text strong style={{ fontSize: '18px', color: '#ffaa00' }}>📌 Recommendations</Text>
+              <div style={{ marginTop: '16px' }}>
+                <ul style={{ paddingLeft: '20px', color: '#cccccc' }}>
+                  {niftyComparison.nifty.totalPnl > niftyComparison.nonNifty.totalPnl ? (
+                    <li style={{ marginBottom: '8px' }}>
+                      Consider focusing more on Nifty/Bank Nifty trades as they show better profitability
+                    </li>
+                  ) : (
+                    <li style={{ marginBottom: '8px' }}>
+                      Stock trades are more profitable for you - consider your allocation strategy
+                    </li>
+                  )}
+                  {niftyComparison.nifty.commonMistakes.topMistakes[0] && (
+                    <li style={{ marginBottom: '8px' }}>
+                      Most common Nifty mistake: <strong>{niftyComparison.nifty.commonMistakes.topMistakes[0].mistake}</strong> - focus on fixing this
+                    </li>
+                  )}
+                  {niftyComparison.nonNifty.commonMistakes.topMistakes[0] && (
+                    <li style={{ marginBottom: '8px' }}>
+                      Most common stock mistake: <strong>{niftyComparison.nonNifty.commonMistakes.topMistakes[0].mistake}</strong> - address this pattern
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </Card>
+          </Space>
+        )}
       </Modal>
     </Space>
   );
