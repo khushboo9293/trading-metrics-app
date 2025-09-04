@@ -82,13 +82,53 @@ router.get('/', authenticateToken, async (req, res) => {
     await db.init();
     const database = db.getDb();
     
-    const trades = await database.all(
-      'SELECT * FROM trades WHERE user_id = ? ORDER BY trade_date DESC, created_at DESC',
-      [req.userId]
+    const { page = 1, pageSize = 20, timeFilter = 'all' } = req.query;
+    const offset = (page - 1) * pageSize;
+    
+    let whereClause = 'WHERE user_id = ?';
+    let params = [req.userId];
+    
+    // Add time filter
+    if (timeFilter !== 'all') {
+      const now = new Date();
+      
+      if (timeFilter === 'current-month') {
+        const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        whereClause += ' AND trade_date >= ?';
+        params.push(startDate.toISOString().split('T')[0]);
+      } else if (timeFilter.startsWith('month-')) {
+        // Handle specific months like "month-2024-01" format
+        const [year, month] = timeFilter.replace('month-', '').split('-');
+        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const endDate = new Date(parseInt(year), parseInt(month), 0);
+        whereClause += ' AND trade_date >= ? AND trade_date <= ?';
+        params.push(startDate.toISOString().split('T')[0]);
+        params.push(endDate.toISOString().split('T')[0]);
+      }
+    }
+    
+    // Get total count for pagination
+    const countResult = await database.get(
+      `SELECT COUNT(*) as total FROM trades ${whereClause}`,
+      params
     );
     
-    res.json(trades);
+    // Get paginated trades
+    const trades = await database.all(
+      `SELECT * FROM trades ${whereClause} ORDER BY trade_date DESC, created_at DESC LIMIT ? OFFSET ?`,
+      [...params, parseInt(pageSize), offset]
+    );
+    
+    res.json({
+      trades,
+      pagination: {
+        current: parseInt(page),
+        pageSize: parseInt(pageSize),
+        total: countResult.total
+      }
+    });
   } catch (error) {
+    console.error('Error fetching trades:', error);
     res.status(500).json({ error: 'Failed to fetch trades' });
   }
 });

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Button, Typography, Tag, Space, Spin, Card, Statistic, Upload, message } from 'antd';
-import { EditOutlined, PlusOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { Table, Button, Typography, Tag, Space, Spin, Card, Statistic, Upload, message, Select, Row, Col } from 'antd';
+import { EditOutlined, PlusOutlined, DownloadOutlined, UploadOutlined, CalendarOutlined } from '@ant-design/icons';
 import api from '../services/api';
 
 const { Title, Text } = Typography;
@@ -10,18 +10,39 @@ const TradeLogs = () => {
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [timeFilter, setTimeFilter] = useState('all');
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 20,
+    total: 0
+  });
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchTrades();
-  }, []);
+  }, [timeFilter, pagination.current, pagination.pageSize]);
 
   const fetchTrades = async () => {
+    setLoading(true);
     try {
-      const response = await api.get('/trades');
-      setTrades(response.data);
-      console.log('Trades fetched successfully:', response.data.length, 'trades');
+      const response = await api.get(`/trades?page=${pagination.current}&pageSize=${pagination.pageSize}&timeFilter=${timeFilter}`);
+      setTrades(response.data.trades || response.data);
+      
+      // Handle pagination response
+      if (response.data.pagination) {
+        setPagination(prev => ({
+          ...prev,
+          total: response.data.pagination.total
+        }));
+      } else {
+        // Fallback if pagination not implemented yet
+        setPagination(prev => ({
+          ...prev,
+          total: response.data.length
+        }));
+      }
+      console.log('Trades fetched successfully:', (response.data.trades || response.data).length, 'trades');
     } catch (error) {
       console.error('Error fetching trades:', error);
       console.error('Error details:', error.response?.data);
@@ -244,49 +265,107 @@ const TradeLogs = () => {
   const winningTrades = trades.filter(t => t.pnl > 0).length;
   const totalPnl = trades.reduce((sum, t) => sum + t.pnl, 0);
 
+  // Generate month filter options
+  const getMonthOptions = () => {
+    const options = [{ label: 'All Trades', value: 'all' }];
+    const now = new Date();
+    
+    // Add current month
+    options.push({
+      label: now.toLocaleString('default', { month: 'long', year: 'numeric' }),
+      value: 'current-month'
+    });
+    
+    // Add last 11 months
+    for (let i = 1; i <= 11; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      options.push({
+        label: date.toLocaleString('default', { month: 'long', year: 'numeric' }),
+        value: `month-${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      });
+    }
+    
+    return options;
+  };
+
+  const handleTableChange = (paginationConfig) => {
+    setPagination({
+      current: paginationConfig.current,
+      pageSize: paginationConfig.pageSize,
+      total: pagination.total
+    });
+  };
+
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <Title level={3} style={{ margin: 0, fontSize: window.innerWidth < 768 ? '20px' : '24px' }}>
-            Trade History
-          </Title>
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            Showing all {totalTrades} trades with complete details
-          </Text>
-        </div>
-        <Space wrap>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/add-trade')}
-            size={window.innerWidth < 768 ? 'middle' : 'large'}
-          >
-            Add Trade
-          </Button>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={handleExport}
-            size={window.innerWidth < 768 ? 'middle' : 'large'}
-          >
-            Export
-          </Button>
-          <Upload
-            beforeUpload={handleImport}
-            showUploadList={false}
-            accept=".xlsx,.xls"
-            disabled={importing}
-          >
-            <Button
-              icon={<UploadOutlined />}
-              loading={importing}
-              size={window.innerWidth < 768 ? 'middle' : 'large'}
-            >
-              Import
-            </Button>
-          </Upload>
-        </Space>
-      </div>
+      <Row gutter={[16, 16]} align="middle">
+        <Col xs={24} sm={12}>
+          <div>
+            <Title level={3} style={{ margin: 0, fontSize: window.innerWidth < 768 ? '20px' : '24px' }}>
+              Trade History
+            </Title>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              {timeFilter === 'all' ? 
+                `Showing ${totalTrades} of ${pagination.total} total trades` :
+                `Showing ${totalTrades} trades for selected period`
+              }
+            </Text>
+          </div>
+        </Col>
+        <Col xs={24} sm={12}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+            <Select
+              value={timeFilter}
+              onChange={(value) => {
+                setTimeFilter(value);
+                setPagination(prev => ({ ...prev, current: 1 })); // Reset to first page
+              }}
+              style={{ minWidth: 200 }}
+              prefix={<CalendarOutlined />}
+              placeholder="Filter by time period"
+              options={getMonthOptions()}
+            />
+          </div>
+        </Col>
+      </Row>
+      
+      <Row gutter={[16, 16]} align="middle">
+        <Col xs={24}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
+            <Space wrap>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => navigate('/add-trade')}
+                size={window.innerWidth < 768 ? 'middle' : 'large'}
+              >
+                Add Trade
+              </Button>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={handleExport}
+                size={window.innerWidth < 768 ? 'middle' : 'large'}
+              >
+                Export
+              </Button>
+              <Upload
+                beforeUpload={handleImport}
+                showUploadList={false}
+                accept=".xlsx,.xls"
+                disabled={importing}
+              >
+                <Button
+                  icon={<UploadOutlined />}
+                  loading={importing}
+                  size={window.innerWidth < 768 ? 'middle' : 'large'}
+                >
+                  Import
+                </Button>
+              </Upload>
+            </Space>
+          </div>
+        </Col>
+      </Row>
 
       {/* Quick Stats Cards - Mobile Friendly */}
       {totalTrades > 0 && (
@@ -349,11 +428,21 @@ const TradeLogs = () => {
               y: window.innerHeight - 400
             }}
             pagination={{
-              pageSize: window.innerWidth < 768 ? 10 : 20,
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: pagination.total,
               showSizeChanger: true,
               showQuickJumper: true,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} trades`
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} trades`,
+              pageSizeOptions: ['10', '20', '50', '100'],
+              onChange: (page, pageSize) => {
+                setPagination(prev => ({ ...prev, current: page, pageSize }));
+              },
+              onShowSizeChange: (current, size) => {
+                setPagination(prev => ({ ...prev, current: 1, pageSize: size }));
+              }
             }}
+            onChange={handleTableChange}
             size={window.innerWidth < 768 ? 'small' : 'middle'}
             rowClassName={(record) => record.pnl >= 0 ? 'profitable-row' : 'loss-row'}
             summary={() => (
