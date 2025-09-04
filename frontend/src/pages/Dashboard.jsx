@@ -405,7 +405,11 @@ const Dashboard = () => {
           </Card>
         </Col>
         <Col xs={12} sm={12} md={6} lg={6}>
-          <Card>
+          <Card
+            hoverable
+            onClick={fetchNiftyComparison}
+            style={{ cursor: 'pointer' }}
+          >
             <Statistic
               title="Total Trades"
               value={summary.totalTrades}
@@ -414,50 +418,9 @@ const Dashboard = () => {
                 fontSize: window.innerWidth < 768 ? '20px' : '24px'
               }}
             />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Nifty vs Non-Nifty Comparison */}
-      <Row gutter={[16, 16]} style={{ marginTop: '16px' }}>
-        <Col span={24}>
-          <Card 
-            title="📊 Nifty vs Non-Nifty Analysis"
-            hoverable
-            onClick={fetchNiftyComparison}
-            style={{ 
-              cursor: 'pointer',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-            }}
-          >
-            <Row gutter={[16, 16]}>
-              <Col xs={24} sm={12}>
-                <div style={{ textAlign: 'center' }}>
-                  <Text style={{ fontSize: '16px', fontWeight: 'bold', color: '#ffffff' }}>
-                    Nifty Trades
-                  </Text>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '8px' }}>
-                    Click to Analyze
-                  </div>
-                  <Text type="secondary" style={{ color: '#f0f0f0' }}>
-                    Compare performance between index and stock trades
-                  </Text>
-                </div>
-              </Col>
-              <Col xs={24} sm={12}>
-                <div style={{ textAlign: 'center' }}>
-                  <Text style={{ fontSize: '16px', fontWeight: 'bold', color: '#ffffff' }}>
-                    Breakdown Insights
-                  </Text>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '8px' }}>
-                    Mistakes & Patterns
-                  </div>
-                  <Text type="secondary" style={{ color: '#f0f0f0' }}>
-                    Identify strengths and weaknesses in each segment
-                  </Text>
-                </div>
-              </Col>
-            </Row>
+            <Text type="secondary" style={{ fontSize: '11px' }}>
+              Click for Nifty vs Stock analysis
+            </Text>
           </Card>
         </Col>
       </Row>
