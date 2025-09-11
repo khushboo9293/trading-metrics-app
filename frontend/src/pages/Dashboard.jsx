@@ -12,7 +12,7 @@ import {
   Legend,
   ArcElement
 } from 'chart.js';
-import { Card, Select, Statistic, Row, Col, Spin, Typography, Space, Tag, Progress, Modal, Divider } from 'antd';
+import { Card, Select, Statistic, Row, Col, Spin, Typography, Space, Tag, Progress, Modal, Divider, Alert } from 'antd';
 import { 
   TrophyOutlined, 
   DollarOutlined, 
@@ -22,7 +22,9 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   RiseOutlined,
-  FallOutlined 
+  FallOutlined,
+  ExclamationCircleOutlined,
+  WarningOutlined
 } from '@ant-design/icons';
 import api from '../services/api';
 
@@ -213,6 +215,69 @@ const Dashboard = () => {
           </Select>
         </Space>
       </Row>
+
+      {/* Trade Limit Alert - Show only when limit is exceeded */}
+      {period === 'today' && summary?.tradeLimitAnalysis?.limitExceeded && (
+        <Alert
+          message={
+            <Space>
+              <ExclamationCircleOutlined />
+              <span>Daily Trade Limit Exceeded!</span>
+            </Space>
+          }
+          description={
+            <div>
+              You have taken <strong>{summary.tradeLimitAnalysis.todayTradeCount} trades</strong> today, 
+              exceeding your limit of 4 trades by <strong>{summary.tradeLimitAnalysis.excessTrades}</strong>.
+              <br />
+              <small style={{ color: '#ffaa00', marginTop: '4px', display: 'block' }}>
+                Overtrading can lead to poor decision-making and reduced profitability.
+              </small>
+            </div>
+          }
+          type="error"
+          showIcon
+          icon={<WarningOutlined />}
+          style={{ marginBottom: '16px' }}
+        />
+      )}
+
+      {/* Trade Limit Violations for Monthly/Period Views */}
+      {period !== 'today' && summary?.tradeLimitAnalysis?.daysOverLimit > 0 && (
+        <Card style={{ marginBottom: '16px', backgroundColor: '#3d1a1a', borderColor: '#ff4757' }}>
+          <Row gutter={[16, 16]} align="middle">
+            <Col xs={24} sm={8}>
+              <Statistic
+                title="Days Over Trade Limit"
+                value={summary.tradeLimitAnalysis.daysOverLimit}
+                suffix={`/ ${summary.tradeLimitAnalysis.totalDaysTraded} days`}
+                valueStyle={{ color: '#ff4757' }}
+                prefix={<ExclamationCircleOutlined />}
+              />
+            </Col>
+            <Col xs={24} sm={8}>
+              <Statistic
+                title="Violation Rate"
+                value={summary.tradeLimitAnalysis.violationRate}
+                suffix="%"
+                valueStyle={{ color: summary.tradeLimitAnalysis.violationRate > 20 ? '#ff4757' : '#ffaa00' }}
+              />
+            </Col>
+            <Col xs={24} sm={8}>
+              <div style={{ fontSize: '12px' }}>
+                <Text strong style={{ color: '#ff4757' }}>Recent Violations:</Text>
+                <div style={{ marginTop: '8px' }}>
+                  {summary.tradeLimitAnalysis.violationDates?.slice(0, 3).map((violation, idx) => (
+                    <div key={idx} style={{ color: '#ccc', fontSize: '11px' }}>
+                      {new Date(violation.date).toLocaleDateString()}: {violation.tradeCount} trades (+{violation.excess})
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Col>
+          </Row>
+        </Card>
+      )}
 
       {/* Main Behavioral Metrics */}
       <Row gutter={[16, 16]}>

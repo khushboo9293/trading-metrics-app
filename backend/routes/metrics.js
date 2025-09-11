@@ -115,6 +115,43 @@ router.get('/summary', authenticateToken, async (req, res) => {
     
     const maxDrawdown = calculateMaxDrawdown(trades);
     
+    // Calculate daily trade limit violations
+    const dailyTradeLimit = 4;
+    let tradeLimitAnalysis = {};
+    
+    if (period === 'today') {
+      // For today view, just show if limit is exceeded
+      tradeLimitAnalysis = {
+        todayTradeCount: totalTrades,
+        limitExceeded: totalTrades > dailyTradeLimit,
+        excessTrades: Math.max(0, totalTrades - dailyTradeLimit)
+      };
+    } else {
+      // For other periods, count days with limit violations
+      const tradesByDay = {};
+      trades.forEach(trade => {
+        const dateKey = trade.trade_date;
+        if (!tradesByDay[dateKey]) {
+          tradesByDay[dateKey] = 0;
+        }
+        tradesByDay[dateKey]++;
+      });
+      
+      const daysOverLimit = Object.entries(tradesByDay).filter(([date, count]) => count > dailyTradeLimit);
+      const totalDaysTraded = Object.keys(tradesByDay).length;
+      
+      tradeLimitAnalysis = {
+        daysOverLimit: daysOverLimit.length,
+        totalDaysTraded,
+        violationDates: daysOverLimit.map(([date, count]) => ({
+          date,
+          tradeCount: count,
+          excess: count - dailyTradeLimit
+        })).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5), // Show last 5 violations
+        violationRate: totalDaysTraded > 0 ? Math.round((daysOverLimit.length / totalDaysTraded) * 100) : 0
+      };
+    }
+    
     res.json({
       totalTrades,
       winningTrades,
@@ -139,7 +176,8 @@ router.get('/summary', authenticateToken, async (req, res) => {
       callPutRatio: {
         calls: trades.filter(t => t.option_type === 'call').length,
         puts: trades.filter(t => t.option_type === 'put').length
-      }
+      },
+      tradeLimitAnalysis
     });
   } catch (error) {
     console.error(error);
