@@ -44,7 +44,7 @@ const Dashboard = () => {
   const [summary, setSummary] = useState(null);
   const [trend, setTrend] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState('current-month');
+  const [period, setPeriod] = useState('today');
   
   // Get current month names for dropdown
   const currentDate = new Date();
