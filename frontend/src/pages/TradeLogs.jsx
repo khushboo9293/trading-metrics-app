@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Button, Typography, Tag, Space, Spin, Card, Statistic, Upload, message, Select, Row, Col } from 'antd';
+import { Table, Button, Typography, Tag, Space, Spin, Card, Statistic, Upload, message, Select, Row, Col, Tooltip } from 'antd';
 import { EditOutlined, PlusOutlined, DownloadOutlined, UploadOutlined, CalendarOutlined } from '@ant-design/icons';
 import api from '../services/api';
 
@@ -117,11 +117,60 @@ const TradeLogs = () => {
       title: 'Symbol',
       dataIndex: 'underlying',
       key: 'underlying',
-      render: (underlying) => (
-        <Text strong style={{ color: '#ff006b', fontSize: '14px' }}>
-          {underlying?.toUpperCase()}
-        </Text>
-      ),
+      render: (underlying, record) => {
+        const hasMistakes = record.mistakes && record.mistakes.trim();
+        const hasNotes = record.notes && record.notes.trim();
+        const showTooltip = hasMistakes || hasNotes;
+        
+        const tooltipContent = (
+          <div style={{ maxWidth: '300px' }}>
+            {hasMistakes && (
+              <div style={{ marginBottom: hasNotes ? '8px' : 0 }}>
+                <strong style={{ color: '#ff4757' }}>Mistakes:</strong>
+                <div style={{ marginTop: '4px', color: '#ffaa00' }}>
+                  {record.mistakes.split(',').map((mistake, idx) => (
+                    <Tag key={idx} color="red" style={{ marginTop: '4px', marginRight: '4px' }}>
+                      {mistake.trim()}
+                    </Tag>
+                  ))}
+                </div>
+              </div>
+            )}
+            {hasNotes && (
+              <div>
+                <strong style={{ color: '#00d9ff' }}>Notes:</strong>
+                <div style={{ marginTop: '4px', color: '#ccc', fontSize: '12px' }}>
+                  {record.notes}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+        
+        return showTooltip ? (
+          <Tooltip 
+            title={tooltipContent} 
+            placement="right"
+            overlayStyle={{ maxWidth: '350px' }}
+          >
+            <Text 
+              strong 
+              style={{ 
+                color: '#ff006b', 
+                fontSize: '14px',
+                cursor: 'help',
+                borderBottom: '1px dotted #ff006b'
+              }}
+            >
+              {underlying?.toUpperCase()}
+            </Text>
+          </Tooltip>
+        ) : (
+          <Text strong style={{ color: '#ff006b', fontSize: '14px' }}>
+            {underlying?.toUpperCase()}
+          </Text>
+        );
+      },
       fixed: 'left',
       width: 100,
     },
