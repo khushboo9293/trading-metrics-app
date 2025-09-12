@@ -668,33 +668,25 @@ const Dashboard = () => {
           <Divider />
           
           <Row gutter={[16, 16]}>
-            <Col span={8}>
+            <Col span={12}>
               <Statistic
                 title="Net P&L"
                 value={summary.totalPnl}
                 precision={2}
                 prefix="₹"
                 valueStyle={{ 
-                  color: summary.totalPnl >= 0 ? '#00ff88' : '#ff4757'
+                  color: summary.totalPnl >= 0 ? '#00ff88' : '#ff4757',
+                  fontSize: '24px'
                 }}
               />
             </Col>
-            <Col span={8}>
+            <Col span={12}>
               <Statistic
                 title="Profit Factor"
                 value={summary.totalLoss > 0 ? (summary.totalProfit / summary.totalLoss).toFixed(2) : 'N/A'}
                 valueStyle={{ 
-                  color: summary.totalProfit / summary.totalLoss >= 1 ? '#00ff88' : '#ff4757'
-                }}
-              />
-            </Col>
-            <Col span={8}>
-              <Statistic
-                title="Avg Trade P&L"
-                value={summary.totalTrades > 0 ? (summary.totalPnl / summary.totalTrades).toFixed(2) : 0}
-                prefix="₹"
-                valueStyle={{ 
-                  color: (summary.totalPnl / summary.totalTrades) >= 0 ? '#00ff88' : '#ff4757'
+                  color: summary.totalProfit / summary.totalLoss >= 1 ? '#00ff88' : '#ff4757',
+                  fontSize: '24px'
                 }}
               />
             </Col>
