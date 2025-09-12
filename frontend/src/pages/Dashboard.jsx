@@ -628,6 +628,46 @@ const Dashboard = () => {
           <Divider />
           
           <Row gutter={[16, 16]}>
+            <Col span={12}>
+              <Card style={{ backgroundColor: '#1a1a1a' }}>
+                <Statistic
+                  title="Total Investment"
+                  value={summary.totalInvestment}
+                  precision={2}
+                  prefix="₹"
+                  valueStyle={{ color: '#00d9ff' }}
+                />
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  Sum of all (Entry Price × Quantity)
+                </Text>
+              </Card>
+            </Col>
+            <Col span={12}>
+              <Card style={{ 
+                backgroundColor: summary.returnPercentage >= 0 ? '#1a3d1a' : '#3d1a1a',
+                borderColor: summary.returnPercentage >= 0 ? '#00ff88' : '#ff4757'
+              }}>
+                <Statistic
+                  title="Return %"
+                  value={summary.returnPercentage}
+                  precision={2}
+                  suffix="%"
+                  prefix={summary.returnPercentage >= 0 ? <RiseOutlined /> : <FallOutlined />}
+                  valueStyle={{ 
+                    color: summary.returnPercentage >= 0 ? '#00ff88' : '#ff4757',
+                    fontSize: '24px'
+                  }}
+                />
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  Return on Investment
+                </Text>
+              </Card>
+            </Col>
+          </Row>
+          
+          <Divider />
+          
+          <Row gutter={[16, 16]}>
             <Col span={8}>
               <Statistic
                 title="Net P&L"

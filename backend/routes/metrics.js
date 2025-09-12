@@ -107,6 +107,14 @@ router.get('/summary', authenticateToken, async (req, res) => {
     const totalProfit = trades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
     const totalLoss = Math.abs(trades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0));
     
+    // Calculate total investment and return percentage
+    const totalInvestment = trades.reduce((sum, t) => {
+      // Investment = entry price × quantity
+      return sum + (t.entry_price * t.quantity);
+    }, 0);
+    
+    const returnPercentage = totalInvestment > 0 ? ((totalPnl / totalInvestment) * 100) : 0;
+    
     const emotionalBias = analyzeEmotionalBias(trades);
     const mistakePatterns = findMistakePatterns(trades);
     const streaks = calculateStreaks(trades);
@@ -167,6 +175,8 @@ router.get('/summary', authenticateToken, async (req, res) => {
       tradesWithPlanFollowed: tradesWithPlanFollowed.length,
       totalProfit: Math.round(totalProfit * 100) / 100,
       totalLoss: Math.round(totalLoss * 100) / 100,
+      totalInvestment: Math.round(totalInvestment * 100) / 100,
+      returnPercentage: Math.round(returnPercentage * 100) / 100,
       maxDrawdown,
       emotionalBias,
       mistakePatterns,
