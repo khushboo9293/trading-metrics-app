@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Line, Doughnut, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -43,6 +44,7 @@ ChartJS.register(
 );
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [summary, setSummary] = useState(null);
   const [trend, setTrend] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1050,8 +1052,10 @@ const Dashboard = () => {
                       border: `2px solid ${colors.border}`,
                       borderRadius: '12px',
                       height: '100%',
-                      transition: 'all 0.3s ease'
+                      transition: 'all 0.3s ease',
+                      cursor: 'pointer'
                     }}
+                    onClick={() => navigate(`/trades?mistake=${mistake.mistake}`)}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = 'translateY(-4px)';
                       e.currentTarget.style.boxShadow = `0 8px 25px ${colors.border}40`;
@@ -1211,171 +1215,6 @@ const Dashboard = () => {
             </Col>
           </Row>
 
-          {/* Interactive Chart with Modern Styling */}
-          <div style={{ marginTop: '24px' }}>
-            <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text strong style={{ fontSize: '16px', color: '#ffffff' }}>
-                📈 Frequency & Impact Analysis
-              </Text>
-              <Tag color="processing">
-                Hover bars for details
-              </Tag>
-            </div>
-            <div style={{ 
-              height: window.innerWidth < 768 ? '300px' : Math.max(300, summary.mistakePatterns.length * 60) + 'px',
-              padding: '16px',
-              background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
-              borderRadius: '12px',
-              border: '1px solid #3a3a3a'
-            }}>
-              <Bar
-                data={{
-                  labels: summary.mistakePatterns.map(m => m.mistake),
-                  datasets: [
-                    {
-                      label: 'Frequency',
-                      data: summary.mistakePatterns.map(m => m.frequency),
-                      backgroundColor: summary.mistakePatterns.map((m, i) => {
-                        const severity = m.avgPnl < -1000 ? 'high' : m.avgPnl < -500 ? 'medium' : 'low';
-                        return severity === 'high' ? '#ff475780' : 
-                               severity === 'medium' ? '#ff6b3580' : '#ffa72680';
-                      }),
-                      borderColor: summary.mistakePatterns.map((m, i) => {
-                        const severity = m.avgPnl < -1000 ? 'high' : m.avgPnl < -500 ? 'medium' : 'low';
-                        return severity === 'high' ? '#ff4757' : 
-                               severity === 'medium' ? '#ff6b35' : '#ffa726';
-                      }),
-                      borderWidth: 3,
-                      borderRadius: 8,
-                      barThickness: window.innerWidth < 768 ? 30 : 40,
-                      borderSkipped: false
-                    }
-                  ]
-                }}
-                options={{
-                  indexAxis: 'y',
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  layout: {
-                    padding: {
-                      right: 60,
-                      left: 10,
-                      top: 10,
-                      bottom: 10
-                    }
-                  },
-                  plugins: {
-                    legend: {
-                      display: false
-                    },
-                    tooltip: {
-                      backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                      borderColor: '#ff4757',
-                      borderWidth: 1,
-                      titleColor: '#ffffff',
-                      bodyColor: '#ffffff',
-                      cornerRadius: 8,
-                      callbacks: {
-                        title: (context) => {
-                          const mistake = summary.mistakePatterns[context[0].dataIndex];
-                          return `${mistake.mistake.toUpperCase()}`;
-                        },
-                        label: (context) => {
-                          const mistake = summary.mistakePatterns[context.dataIndex];
-                          return [
-                            `🔢 Frequency: ${mistake.frequency} times`,
-                            `💰 Avg Impact: ₹${mistake.avgPnl.toFixed(2)}`,
-                            `💸 Total Cost: ₹${(mistake.avgPnl * mistake.frequency).toFixed(2)}`,
-                            `📊 ${((mistake.frequency / summary.mistakePatterns.reduce((sum, m) => sum + m.frequency, 0)) * 100).toFixed(1)}% of all mistakes`
-                          ];
-                        }
-                      }
-                    }
-                  },
-                  scales: {
-                    x: {
-                      beginAtZero: true,
-                      grid: {
-                        color: 'rgba(255, 255, 255, 0.1)',
-                        lineWidth: 1
-                      },
-                      ticks: {
-                        stepSize: 1,
-                        color: '#cccccc',
-                        font: {
-                          size: 12,
-                          weight: 'bold'
-                        },
-                        callback: (value) => Math.floor(value) === value ? value : ''
-                      },
-                      title: {
-                        display: true,
-                        text: 'Frequency Count',
-                        color: '#ffffff',
-                        font: {
-                          size: 14,
-                          weight: 'bold'
-                        }
-                      }
-                    },
-                    y: {
-                      grid: {
-                        display: false
-                      },
-                      ticks: {
-                        autoSkip: false,
-                        color: '#ffffff',
-                        font: {
-                          size: window.innerWidth < 768 ? 11 : 13,
-                          weight: 'bold'
-                        },
-                        callback: function(value, index) {
-                          const label = this.getLabelForValue(value);
-                          return label.length > 15 ? label.substring(0, 15) + '...' : label;
-                        }
-                      }
-                    }
-                  },
-                  onHover: (event, activeElements) => {
-                    event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
-                  }
-                }}
-                plugins={[{
-                  id: 'modernLabels',
-                  afterDatasetsDraw: (chart) => {
-                    const ctx = chart.ctx;
-                    chart.data.datasets.forEach((dataset, i) => {
-                      const meta = chart.getDatasetMeta(i);
-                      meta.data.forEach((bar, index) => {
-                        const mistake = summary.mistakePatterns[index];
-                        const y = bar.y;
-                        
-                        // Modern count label with background
-                        ctx.save();
-                        
-                        // Draw background circle
-                        const radius = 16;
-                        ctx.beginPath();
-                        ctx.arc(bar.x + bar.width + 25, y, radius, 0, 2 * Math.PI);
-                        ctx.fillStyle = mistake.avgPnl < -1000 ? '#ff4757' : 
-                                        mistake.avgPnl < -500 ? '#ff6b35' : '#ffa726';
-                        ctx.fill();
-                        
-                        // Draw count text
-                        ctx.fillStyle = '#ffffff';
-                        ctx.font = `bold ${window.innerWidth < 768 ? '12px' : '14px'} sans-serif`;
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText(mistake.frequency, bar.x + bar.width + 25, y);
-                        
-                        ctx.restore();
-                      });
-                    });
-                  }
-                }]}
-              />
-            </div>
-          </div>
 
         </Card>
       )}

@@ -37,6 +37,8 @@ router.post('/', authenticateToken, async (req, res) => {
       exit_price,
       quantity,
       trade_date,
+      entry_time,
+      exit_time,
       followed_plan,
       mistakes,
       emotional_state_entry,
@@ -55,13 +57,13 @@ router.post('/', authenticateToken, async (req, res) => {
     const result = await database.run(
       `INSERT INTO trades (
         user_id, underlying, option_type, breakout_type, nifty_range, entry_price,
-        stop_loss, exit_price, quantity, trade_date,
+        stop_loss, exit_price, quantity, trade_date, entry_time, exit_time,
         followed_plan, mistakes, emotional_state_entry, emotional_state_exit, notes, screenshot_url,
         pnl, return_percentage, risk_amount, r_multiple
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.userId, underlying, option_type, breakout_type, nifty_range, entry_price,
-        stop_loss, exit_price, quantity, trade_date,
+        stop_loss, exit_price, quantity, trade_date, entry_time, exit_time,
         followed_plan, mistakes, emotional_state_entry, emotional_state_exit, notes, screenshot_url,
         metrics.pnl, metrics.returnPercentage, metrics.riskAmount, metrics.rMultiple
       ]
@@ -82,7 +84,7 @@ router.get('/', authenticateToken, async (req, res) => {
     await db.init();
     const database = db.getDb();
     
-    const { page = 1, pageSize = 20, timeFilter = 'all' } = req.query;
+    const { page = 1, pageSize = 20, timeFilter = 'all', mistakeFilter = '' } = req.query;
     const offset = (page - 1) * pageSize;
     
     let whereClause = 'WHERE user_id = ?';
@@ -105,6 +107,12 @@ router.get('/', authenticateToken, async (req, res) => {
         params.push(startDate.toISOString().split('T')[0]);
         params.push(endDate.toISOString().split('T')[0]);
       }
+    }
+    
+    // Add mistake filter
+    if (mistakeFilter && mistakeFilter.trim()) {
+      whereClause += ' AND mistakes LIKE ?';
+      params.push(`%${mistakeFilter.trim()}%`);
     }
     
     // Get total count for pagination
@@ -148,6 +156,8 @@ router.get('/export', authenticateToken, async (req, res) => {
     // Transform trades data for Excel
     const exportData = trades.map(trade => ({
       'Date': trade.trade_date,
+      'Entry Time': trade.entry_time || '',
+      'Exit Time': trade.exit_time || '',
       'Underlying': trade.underlying,
       'Option Type': trade.option_type,
       'Breakout Type': trade.breakout_type || '',
@@ -322,6 +332,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
       exit_price,
       quantity,
       trade_date,
+      entry_time,
+      exit_time,
       followed_plan,
       mistakes,
       emotional_state_entry,
@@ -350,13 +362,13 @@ router.put('/:id', authenticateToken, async (req, res) => {
     await database.run(
       `UPDATE trades SET 
         underlying = ?, option_type = ?, breakout_type = ?, nifty_range = ?, entry_price = ?,
-        stop_loss = ?, exit_price = ?, quantity = ?, trade_date = ?,
+        stop_loss = ?, exit_price = ?, quantity = ?, trade_date = ?, entry_time = ?, exit_time = ?,
         followed_plan = ?, mistakes = ?, emotional_state_entry = ?, emotional_state_exit = ?, notes = ?, screenshot_url = ?,
         pnl = ?, return_percentage = ?, risk_amount = ?, r_multiple = ?
       WHERE id = ? AND user_id = ?`,
       [
         underlying, option_type, breakout_type, nifty_range, entry_price,
-        stop_loss, exit_price, quantity, trade_date,
+        stop_loss, exit_price, quantity, trade_date, entry_time, exit_time,
         followed_plan, mistakes, emotional_state_entry, emotional_state_exit, notes, screenshot_url,
         metrics.pnl, metrics.returnPercentage, metrics.riskAmount, metrics.rMultiple,
         req.params.id, req.userId

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Card, Form, Input, Select, Button, DatePicker, InputNumber, Typography, Space, Alert, Spin, Tag } from 'antd';
+import { Card, Form, Input, Select, Button, DatePicker, InputNumber, Typography, Space, Alert, Spin, Tag, TimePicker } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import api from '../services/api';
@@ -86,6 +86,8 @@ const EditTrade = () => {
         exit_price: trade.exit_price || 0,
         quantity: trade.quantity || 0,
         trade_date: trade.trade_date ? moment(trade.trade_date) : moment(),
+        entry_time: trade.entry_time ? moment(trade.entry_time, 'HH:mm') : null,
+        exit_time: trade.exit_time ? moment(trade.exit_time, 'HH:mm') : null,
         followed_plan: trade.followed_plan !== undefined ? trade.followed_plan : true,
         notes: trade.notes || ''
       });
@@ -119,6 +121,8 @@ const EditTrade = () => {
       await api.put(`/trades/${id}`, {
         ...values,
         trade_date: values.trade_date.format('YYYY-MM-DD'),
+        entry_time: values.entry_time ? values.entry_time.format('HH:mm') : null,
+        exit_time: values.exit_time ? values.exit_time.format('HH:mm') : null,
         mistakes: selectedTags.join(', '),
         emotional_state_entry: selectedEntryEmotions.join(', '),
         emotional_state_exit: selectedExitEmotions.join(', ')
@@ -236,6 +240,33 @@ const EditTrade = () => {
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
 
+          <Space direction="horizontal" style={{ width: '100%' }}>
+            <Form.Item
+              label="Entry Time (Optional)"
+              name="entry_time"
+              style={{ flex: 1 }}
+            >
+              <TimePicker 
+                style={{ width: '100%' }} 
+                format="HH:mm"
+                placeholder="Entry time"
+                size="large"
+              />
+            </Form.Item>
+
+            <Form.Item
+              label="Exit Time (Optional)"
+              name="exit_time"
+              style={{ flex: 1 }}
+            >
+              <TimePicker 
+                style={{ width: '100%' }} 
+                format="HH:mm"
+                placeholder="Exit time"
+                size="large"
+              />
+            </Form.Item>
+          </Space>
 
           <Form.Item
             label="Followed Trading Plan"

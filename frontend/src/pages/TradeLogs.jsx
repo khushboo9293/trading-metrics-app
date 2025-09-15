@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Table, Button, Typography, Tag, Space, Spin, Card, Statistic, Upload, message, Select, Row, Col, Tooltip } from 'antd';
-import { EditOutlined, PlusOutlined, DownloadOutlined, UploadOutlined, CalendarOutlined } from '@ant-design/icons';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Table, Button, Typography, Tag, Space, Spin, Card, Statistic, Upload, message, Select, Row, Col, Tooltip, Alert } from 'antd';
+import { EditOutlined, PlusOutlined, DownloadOutlined, UploadOutlined, CalendarOutlined, ClearOutlined } from '@ant-design/icons';
 import api from '../services/api';
 
 const { Title, Text } = Typography;
@@ -11,6 +11,7 @@ const TradeLogs = () => {
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [timeFilter, setTimeFilter] = useState('all');
+  const [mistakeFilter, setMistakeFilter] = useState('');
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
@@ -18,15 +19,24 @@ const TradeLogs = () => {
   });
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    // Check for mistake filter in URL params
+    const mistakeParam = searchParams.get('mistake');
+    if (mistakeParam) {
+      setMistakeFilter(mistakeParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetchTrades();
-  }, [timeFilter, pagination.current, pagination.pageSize]);
+  }, [timeFilter, mistakeFilter, pagination.current, pagination.pageSize]);
 
   const fetchTrades = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`/trades?page=${pagination.current}&pageSize=${pagination.pageSize}&timeFilter=${timeFilter}`);
+      const response = await api.get(`/trades?page=${pagination.current}&pageSize=${pagination.pageSize}&timeFilter=${timeFilter}&mistakeFilter=${mistakeFilter}`);
       setTrades(response.data.trades || response.data);
       
       // Handle pagination response
@@ -354,9 +364,9 @@ const TradeLogs = () => {
               Trade History
             </Title>
             <Text type="secondary" style={{ fontSize: '12px' }}>
-              {timeFilter === 'all' ? 
+              {timeFilter === 'all' && !mistakeFilter ? 
                 `Showing ${totalTrades} of ${pagination.total} total trades` :
-                `Showing ${totalTrades} trades for selected period`
+                `Showing ${totalTrades} trades${timeFilter !== 'all' ? ' for selected period' : ''}${mistakeFilter ? ` with mistake: ${mistakeFilter}` : ''}`
               }
             </Text>
           </div>
@@ -374,9 +384,70 @@ const TradeLogs = () => {
               placeholder="Filter by time period"
               options={getMonthOptions()}
             />
+            <Select
+              value={mistakeFilter}
+              onChange={(value) => {
+                setMistakeFilter(value);
+                setPagination(prev => ({ ...prev, current: 1 })); // Reset to first page
+                // Update URL params
+                if (value) {
+                  setSearchParams({ mistake: value });
+                } else {
+                  setSearchParams({});
+                }
+              }}
+              style={{ minWidth: 150 }}
+              placeholder="Filter by mistake"
+              allowClear
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={[
+                { label: 'All trades', value: '' },
+                { label: 'FOMO Entry', value: 'fomo-entry' },
+                { label: 'Impulse Entry', value: 'impulse-entry' },
+                { label: 'Early Exit', value: 'early-exit' },
+                { label: 'Late Exit', value: 'late-exit' },
+                { label: 'Poor Position Size', value: 'poor-position-size' },
+                { label: 'Fear Driven', value: 'fear-driven' },
+                { label: 'Greed Driven', value: 'greed-driven' },
+                { label: 'Ignored Plan', value: 'ignored-plan' },
+                { label: 'Poor Risk Sizing', value: 'poor-risk-sizing' },
+                { label: 'No Stop Loss', value: 'no-stop-loss' },
+                { label: 'Moved Stop Loss', value: 'moved-stop-loss' },
+                { label: 'Revenge Mode', value: 'revenge-mode' },
+                { label: 'Overconfident', value: 'overconfident' },
+                { label: 'Tilted', value: 'tilted' }
+              ]}
+            />
           </div>
         </Col>
       </Row>
+      
+      {/* Show filter status */}
+      {mistakeFilter && (
+        <Alert
+          message={`Filtering trades by mistake: ${mistakeFilter}`}
+          type="info"
+          showIcon
+          closable={false}
+          style={{ marginBottom: '16px' }}
+          action={
+            <Button 
+              size="small" 
+              icon={<ClearOutlined />}
+              onClick={() => {
+                setMistakeFilter('');
+                setSearchParams({});
+                setPagination(prev => ({ ...prev, current: 1 }));
+              }}
+            >
+              Clear Filter
+            </Button>
+          }
+        />
+      )}
       
       <Row gutter={[16, 16]} align="middle">
         <Col xs={24}>

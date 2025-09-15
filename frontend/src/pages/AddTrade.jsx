@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Form, Input, Select, Button, DatePicker, InputNumber, Typography, Space, Alert, Tag } from 'antd';
+import { Card, Form, Input, Select, Button, DatePicker, InputNumber, Typography, Space, Alert, Tag, TimePicker } from 'antd';
 import { PlusOutlined, ArrowLeftOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import api from '../services/api';
@@ -107,6 +107,8 @@ const AddTrade = () => {
       await api.post('/trades', {
         ...values,
         trade_date: values.trade_date.format('YYYY-MM-DD'),
+        entry_time: values.entry_time ? values.entry_time.format('HH:mm') : null,
+        exit_time: values.exit_time ? values.exit_time.format('HH:mm') : null,
         mistakes: selectedTags.join(', '),
         emotional_state_entry: selectedEntryEmotions.join(', '),
         emotional_state_exit: selectedExitEmotions.join(', ')
@@ -115,12 +117,14 @@ const AddTrade = () => {
       if (saveAndAddAnother) {
         // Keep the form values but reset specific fields for new trade
         const currentValues = form.getFieldsValue();
-        form.resetFields(['entry_price', 'exit_price', 'stop_loss', 'mistakes', 'notes']);
+        form.resetFields(['entry_price', 'exit_price', 'stop_loss', 'entry_time', 'exit_time', 'mistakes', 'notes']);
         form.setFieldsValue({
           ...currentValues,
           entry_price: null,
           exit_price: null,
           stop_loss: null,
+          entry_time: null,
+          exit_time: null,
           notes: '',
           trade_date: moment() // Reset to today
         });
@@ -161,6 +165,7 @@ const AddTrade = () => {
           layout="vertical"
           onFinish={handleSubmit}
           initialValues={{
+            underlying: 'Nifty',
             option_type: 'call',
             breakout_type: 'vertical',
             nifty_range: 'inside_day',
@@ -251,6 +256,33 @@ const AddTrade = () => {
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
 
+          <Space direction="horizontal" style={{ width: '100%' }}>
+            <Form.Item
+              label="Entry Time (Optional)"
+              name="entry_time"
+              style={{ flex: 1 }}
+            >
+              <TimePicker 
+                style={{ width: '100%' }} 
+                format="HH:mm"
+                placeholder="Entry time"
+                size="large"
+              />
+            </Form.Item>
+
+            <Form.Item
+              label="Exit Time (Optional)"
+              name="exit_time"
+              style={{ flex: 1 }}
+            >
+              <TimePicker 
+                style={{ width: '100%' }} 
+                format="HH:mm"
+                placeholder="Exit time"
+                size="large"
+              />
+            </Form.Item>
+          </Space>
 
           <Form.Item
             label="Followed Trading Plan"

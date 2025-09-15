@@ -49,6 +49,8 @@ const Database = process.env.DATABASE_URL ? PostgresDatabase : class SQLiteDatab
         quantity INTEGER NOT NULL,
         lot_size INTEGER DEFAULT 25,
         trade_date DATE NOT NULL,
+        entry_time TEXT,
+        exit_time TEXT,
         followed_plan BOOLEAN NOT NULL,
         mistakes TEXT,
         emotional_state_entry TEXT,
