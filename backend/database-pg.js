@@ -52,6 +52,7 @@ class PostgresDatabase {
           exit_time TEXT,
           followed_plan BOOLEAN NOT NULL,
           mistakes TEXT,
+          mistake_corrected BOOLEAN DEFAULT FALSE,
           emotional_state_entry TEXT,
           emotional_state_exit TEXT,
           notes TEXT,

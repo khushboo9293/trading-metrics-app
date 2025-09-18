@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Card, Form, Input, Select, Button, DatePicker, InputNumber, Typography, Space, Alert, Spin, Tag, TimePicker } from 'antd';
+import { Card, Form, Input, Select, Button, DatePicker, InputNumber, Typography, Space, Alert, Spin, Tag, TimePicker, Checkbox } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import api from '../services/api';
@@ -89,6 +89,7 @@ const EditTrade = () => {
         entry_time: trade.entry_time ? moment(trade.entry_time, 'HH:mm') : null,
         exit_time: trade.exit_time ? moment(trade.exit_time, 'HH:mm') : null,
         followed_plan: trade.followed_plan !== undefined ? trade.followed_plan : true,
+        mistake_corrected: trade.mistake_corrected || false,
         notes: trade.notes || ''
       });
       // Set selected tags from mistakes string
@@ -348,6 +349,21 @@ const EditTrade = () => {
                 );
               })}
             </div>
+          </Form.Item>
+
+          <Form.Item
+            name="mistake_corrected"
+            valuePropName="checked"
+            style={{ marginBottom: '24px' }}
+          >
+            <Checkbox>
+              <span style={{ color: '#52c41a', fontWeight: '500' }}>
+                ✅ Made a mistake but realized and corrected it during the trade
+              </span>
+              <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+                Check this if you caught your error and took corrective action
+              </div>
+            </Checkbox>
           </Form.Item>
 
           {/* Emotional State Fields */}

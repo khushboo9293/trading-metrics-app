@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Form, Input, Select, Button, DatePicker, InputNumber, Typography, Space, Alert, Tag, TimePicker } from 'antd';
+import { Card, Form, Input, Select, Button, DatePicker, InputNumber, Typography, Space, Alert, Tag, TimePicker, Checkbox } from 'antd';
 import { PlusOutlined, ArrowLeftOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import api from '../services/api';
@@ -117,7 +117,7 @@ const AddTrade = () => {
       if (saveAndAddAnother) {
         // Keep the form values but reset specific fields for new trade
         const currentValues = form.getFieldsValue();
-        form.resetFields(['entry_price', 'exit_price', 'stop_loss', 'entry_time', 'exit_time', 'mistakes', 'notes']);
+        form.resetFields(['entry_price', 'exit_price', 'stop_loss', 'entry_time', 'exit_time', 'mistakes', 'mistake_corrected', 'notes']);
         form.setFieldsValue({
           ...currentValues,
           entry_price: null,
@@ -126,6 +126,7 @@ const AddTrade = () => {
           entry_time: null,
           exit_time: null,
           notes: '',
+          mistake_corrected: false,
           trade_date: moment() // Reset to today
         });
         setSelectedTags([]); // Reset tags
@@ -365,6 +366,21 @@ const AddTrade = () => {
                 );
               })}
             </div>
+          </Form.Item>
+
+          <Form.Item
+            name="mistake_corrected"
+            valuePropName="checked"
+            style={{ marginBottom: '24px' }}
+          >
+            <Checkbox>
+              <span style={{ color: '#52c41a', fontWeight: '500' }}>
+                ✅ Made a mistake but realized and corrected it during the trade
+              </span>
+              <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+                Check this if you caught your error and took corrective action
+              </div>
+            </Checkbox>
           </Form.Item>
 
           {/* Emotional State Fields */}

@@ -224,13 +224,20 @@ const TradeLogs = () => {
       title: 'P&L',
       dataIndex: 'pnl',
       key: 'pnl',
-      render: (pnl) => (
-        <Text strong style={{ 
-          color: pnl >= 0 ? '#00ff88' : '#ff4757', 
-          fontSize: '14px' 
-        }}>
-          ₹{pnl?.toFixed(2) || '0.00'}
-        </Text>
+      render: (pnl, record) => (
+        <Space direction="vertical" size={0}>
+          <Text strong style={{ 
+            color: pnl >= 0 ? '#00ff88' : '#ff4757', 
+            fontSize: '14px' 
+          }}>
+            ₹{pnl?.toFixed(2) || '0.00'}
+          </Text>
+          {record.mistake_corrected && (
+            <Text style={{ fontSize: '10px', color: '#52c41a' }}>
+              ✅ Corrected
+            </Text>
+          )}
+        </Space>
       ),
       width: 120,
       sorter: (a, b) => a.pnl - b.pnl,

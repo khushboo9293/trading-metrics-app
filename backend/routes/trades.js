@@ -43,6 +43,7 @@ router.post('/', authenticateToken, async (req, res) => {
       exit_time,
       followed_plan,
       mistakes,
+      mistake_corrected,
       emotional_state_entry,
       emotional_state_exit,
       notes,
@@ -60,13 +61,13 @@ router.post('/', authenticateToken, async (req, res) => {
       `INSERT INTO trades (
         user_id, underlying, option_type, breakout_type, nifty_range, entry_price,
         stop_loss, exit_price, quantity, trade_date, entry_time, exit_time,
-        followed_plan, mistakes, emotional_state_entry, emotional_state_exit, notes, screenshot_url,
+        followed_plan, mistakes, mistake_corrected, emotional_state_entry, emotional_state_exit, notes, screenshot_url,
         pnl, return_percentage, risk_amount, r_multiple
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.userId, underlying, option_type, breakout_type, nifty_range, entry_price,
         stop_loss, exit_price, quantity, trade_date, entry_time, exit_time,
-        followed_plan, mistakes, emotional_state_entry, emotional_state_exit, notes, screenshot_url,
+        followed_plan, mistakes, mistake_corrected || false, emotional_state_entry, emotional_state_exit, notes, screenshot_url,
         metrics.pnl, metrics.returnPercentage, metrics.riskAmount, metrics.rMultiple
       ]
     );
@@ -342,6 +343,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
       exit_time,
       followed_plan,
       mistakes,
+      mistake_corrected,
       emotional_state_entry,
       emotional_state_exit,
       notes,
@@ -369,13 +371,13 @@ router.put('/:id', authenticateToken, async (req, res) => {
       `UPDATE trades SET 
         underlying = ?, option_type = ?, breakout_type = ?, nifty_range = ?, entry_price = ?,
         stop_loss = ?, exit_price = ?, quantity = ?, trade_date = ?, entry_time = ?, exit_time = ?,
-        followed_plan = ?, mistakes = ?, emotional_state_entry = ?, emotional_state_exit = ?, notes = ?, screenshot_url = ?,
+        followed_plan = ?, mistakes = ?, mistake_corrected = ?, emotional_state_entry = ?, emotional_state_exit = ?, notes = ?, screenshot_url = ?,
         pnl = ?, return_percentage = ?, risk_amount = ?, r_multiple = ?
       WHERE id = ? AND user_id = ?`,
       [
         underlying, option_type, breakout_type, nifty_range, entry_price,
         stop_loss, exit_price, quantity, trade_date, entry_time, exit_time,
-        followed_plan, mistakes, emotional_state_entry, emotional_state_exit, notes, screenshot_url,
+        followed_plan, mistakes, mistake_corrected || false, emotional_state_entry, emotional_state_exit, notes, screenshot_url,
         metrics.pnl, metrics.returnPercentage, metrics.riskAmount, metrics.rMultiple,
         req.params.id, req.userId
       ]

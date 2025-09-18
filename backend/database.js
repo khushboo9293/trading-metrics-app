@@ -53,6 +53,7 @@ const Database = process.env.DATABASE_URL ? PostgresDatabase : class SQLiteDatab
         exit_time TEXT,
         followed_plan BOOLEAN NOT NULL,
         mistakes TEXT,
+        mistake_corrected BOOLEAN DEFAULT 0,
         emotional_state_entry TEXT,
         emotional_state_exit TEXT,
         notes TEXT,
@@ -115,6 +116,8 @@ const Database = process.env.DATABASE_URL ? PostgresDatabase : class SQLiteDatab
 
     // Add migration for emotional state columns if they don't exist
     await this.migrateEmotionalStateColumns();
+    // Add migration for mistake_corrected column
+    await this.migrateMistakeCorrectedColumn();
   }
 
   async migrateEmotionalStateColumns() {
@@ -135,6 +138,21 @@ const Database = process.env.DATABASE_URL ? PostgresDatabase : class SQLiteDatab
       }
     } catch (error) {
       console.error('Error during emotional state migration:', error);
+    }
+  }
+
+  async migrateMistakeCorrectedColumn() {
+    try {
+      // Check if mistake_corrected column exists
+      const tableInfo = await this.db.all("PRAGMA table_info(trades)");
+      const hasColumn = tableInfo.some(col => col.name === 'mistake_corrected');
+
+      if (!hasColumn) {
+        await this.db.exec("ALTER TABLE trades ADD COLUMN mistake_corrected BOOLEAN DEFAULT 0");
+        console.log('Added mistake_corrected column to trades table');
+      }
+    } catch (error) {
+      console.error('Error during mistake_corrected migration:', error);
     }
   }
 
