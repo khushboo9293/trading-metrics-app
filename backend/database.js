@@ -118,6 +118,8 @@ const Database = process.env.DATABASE_URL ? PostgresDatabase : class SQLiteDatab
     await this.migrateEmotionalStateColumns();
     // Add migration for mistake_corrected column
     await this.migrateMistakeCorrectedColumn();
+    // Add migration for time fields
+    await this.migrateTimeColumns();
   }
 
   async migrateEmotionalStateColumns() {
@@ -153,6 +155,27 @@ const Database = process.env.DATABASE_URL ? PostgresDatabase : class SQLiteDatab
       }
     } catch (error) {
       console.error('Error during mistake_corrected migration:', error);
+    }
+  }
+
+  async migrateTimeColumns() {
+    try {
+      // Check if time columns exist
+      const tableInfo = await this.db.all("PRAGMA table_info(trades)");
+      const hasEntryTime = tableInfo.some(col => col.name === 'entry_time');
+      const hasExitTime = tableInfo.some(col => col.name === 'exit_time');
+
+      if (!hasEntryTime) {
+        await this.db.exec("ALTER TABLE trades ADD COLUMN entry_time TEXT");
+        console.log('Added entry_time column to trades table');
+      }
+
+      if (!hasExitTime) {
+        await this.db.exec("ALTER TABLE trades ADD COLUMN exit_time TEXT");
+        console.log('Added exit_time column to trades table');
+      }
+    } catch (error) {
+      console.error('Error during time columns migration:', error);
     }
   }
 
