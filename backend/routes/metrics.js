@@ -1,5 +1,7 @@
 import express from 'express';
 import Database from '../database.js';
+import dbSingleton from '../database-singleton.js';
+import { summaryCache, trendCache } from '../cache.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { analyzeEmotionalBias, findMistakePatterns, calculateStreaks, analyzeBreakoutTypes, analyzeNiftyRange } from '../utils/metrics.js';
 
@@ -7,9 +9,7 @@ const router = express.Router();
 
 router.get('/daily', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     const { date } = req.query;
     const query = date 
@@ -26,11 +26,18 @@ router.get('/daily', authenticateToken, async (req, res) => {
 
 router.get('/summary', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
-    
+    // Check cache first
     const { period = 'current-month' } = req.query;
+    const cacheKey = `user:${req.userId}:summary:${period}`;
+    const cached = summaryCache.get(cacheKey);
+    
+    if (cached) {
+      return res.json(cached);
+    }
+    
+    // Use singleton database connection
+    const database = await dbSingleton.getInstance();
+    
     let startDate, endDate;
     
     if (period === 'today') {
@@ -160,7 +167,7 @@ router.get('/summary', authenticateToken, async (req, res) => {
       };
     }
     
-    res.json({
+    const responseData = {
       totalTrades,
       winningTrades,
       losingTrades: totalTrades - winningTrades,
@@ -188,7 +195,12 @@ router.get('/summary', authenticateToken, async (req, res) => {
         puts: trades.filter(t => t.option_type === 'put').length
       },
       tradeLimitAnalysis
-    });
+    };
+    
+    // Cache the response
+    summaryCache.set(cacheKey, responseData);
+    
+    res.json(responseData);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch summary metrics' });
@@ -197,11 +209,18 @@ router.get('/summary', authenticateToken, async (req, res) => {
 
 router.get('/performance-trend', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
-    
+    // Check cache first
     const { period = 'current-month' } = req.query;
+    const cacheKey = `user:${req.userId}:trend:${period}`;
+    const cached = trendCache.get(cacheKey);
+    
+    if (cached) {
+      return res.json(cached);
+    }
+    
+    // Use singleton database connection
+    const database = await dbSingleton.getInstance();
+    
     let startDate, endDate;
     
     if (period === 'today') {
@@ -298,6 +317,9 @@ router.get('/performance-trend', authenticateToken, async (req, res) => {
       };
     });
     
+    // Cache the response
+    trendCache.set(cacheKey, equityCurve);
+    
     res.json(equityCurve);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch performance trend' });
@@ -306,9 +328,7 @@ router.get('/performance-trend', authenticateToken, async (req, res) => {
 
 router.get('/weekly-r-multiple', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     // Get last 12 weeks of data
     const startDate = new Date();
@@ -382,9 +402,7 @@ router.get('/weekly-r-multiple', authenticateToken, async (req, res) => {
 // Weekly Plan Follow Rate endpoint
 router.get('/weekly-plan-follow-rate', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     // Get last 12 weeks of data
     const startDate = new Date();
@@ -438,9 +456,7 @@ router.get('/weekly-plan-follow-rate', authenticateToken, async (req, res) => {
 // Weekly Win Rate endpoint
 router.get('/weekly-win-rate', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     // Get last 12 weeks of data
     const startDate = new Date();
@@ -497,9 +513,7 @@ router.get('/weekly-win-rate', authenticateToken, async (req, res) => {
 
 router.get('/plan-deviation-analysis', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     // Get all deviation trades with full details
     const deviationTrades = await database.all(
@@ -645,9 +659,7 @@ router.get('/plan-deviation-analysis', authenticateToken, async (req, res) => {
 // Populate default tags
 router.post('/populate-tags', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     const defaultTags = [
       // Entry Mistakes
@@ -723,9 +735,7 @@ router.post('/populate-tags', authenticateToken, async (req, res) => {
 // Get all tags for autocomplete
 router.get('/tags', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     const tags = await database.all('SELECT * FROM mistake_tags ORDER BY tag_name ASC');
     res.json(tags);
@@ -738,9 +748,7 @@ router.get('/tags', authenticateToken, async (req, res) => {
 // Get emotional state tags for autocomplete
 router.get('/emotion-tags', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     const tags = await database.all(
       'SELECT * FROM emotional_state_tags WHERE user_id = ? ORDER BY usage_count DESC, tag_name ASC', 
@@ -762,9 +770,7 @@ router.post('/emotion-tags', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Tag name is required' });
     }
     
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     // Check if tag already exists for this user
     const existing = await database.get(
@@ -837,9 +843,7 @@ function calculateMaxDrawdown(trades) {
 // Nifty vs Non-Nifty Analysis endpoint
 router.get('/nifty-comparison', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     // Get all trades for the user
     const allTrades = await database.all(

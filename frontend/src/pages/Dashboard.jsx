@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
+import DashboardSkeleton from '../components/DashboardSkeleton';
 import { Line, Doughnut, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -132,11 +133,7 @@ const Dashboard = () => {
   };
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
-        <Spin size="large" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (!summary) {

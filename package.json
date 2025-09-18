@@ -18,12 +18,15 @@
   },
   "keywords": [
     "trading",
-    "metrics", 
+    "metrics",
     "analytics",
     "react",
     "node.js",
     "responsive"
   ],
   "author": "Generated with Claude Code",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "concurrently": "^9.2.1"
+  }
 }

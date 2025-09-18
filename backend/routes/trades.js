@@ -1,5 +1,7 @@
 import express from 'express';
 import Database from '../database.js';
+import dbSingleton from '../database-singleton.js';
+import { summaryCache, trendCache } from '../cache.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { calculateMetrics } from '../utils/metrics.js';
 import XLSX from 'xlsx';
@@ -70,6 +72,10 @@ router.post('/', authenticateToken, async (req, res) => {
     );
     
     await updateDailyMetrics(database, req.userId, trade_date);
+    
+    // Clear cache for this user since data has changed
+    summaryCache.clearUser(req.userId);
+    trendCache.clearUser(req.userId);
     
     res.json({ id: result.lastID, ...metrics });
   } catch (error) {
@@ -382,6 +388,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (existingTrade.trade_date !== trade_date) {
       await updateDailyMetrics(database, req.userId, existingTrade.trade_date);
     }
+    
+    // Clear cache for this user since data has changed
+    summaryCache.clearUser(req.userId);
+    trendCache.clearUser(req.userId);
     
     res.json({ id: req.params.id, ...metrics });
   } catch (error) {
