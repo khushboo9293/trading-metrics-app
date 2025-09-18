@@ -9,6 +9,80 @@ import multer from 'multer';
 
 const router = express.Router();
 
+// Debug endpoint to test database connection and schema
+router.get('/debug-schema', authenticateToken, async (req, res) => {
+  try {
+    const database = await dbSingleton.getInstance();
+    
+    // Check if we're using SQLite or PostgreSQL
+    const isPostgres = !!process.env.DATABASE_URL;
+    
+    let tableInfo;
+    if (isPostgres) {
+      // PostgreSQL query
+      tableInfo = await database.all(`
+        SELECT column_name, data_type, column_default 
+        FROM information_schema.columns 
+        WHERE table_name = 'trades' 
+        ORDER BY ordinal_position
+      `);
+    } else {
+      // SQLite query
+      tableInfo = await database.all("PRAGMA table_info(trades)");
+    }
+    
+    res.json({
+      database_type: isPostgres ? 'PostgreSQL' : 'SQLite',
+      total_columns: tableInfo.length,
+      columns: tableInfo,
+      has_entry_time: isPostgres 
+        ? tableInfo.some(col => col.column_name === 'entry_time')
+        : tableInfo.some(col => col.name === 'entry_time'),
+      has_exit_time: isPostgres 
+        ? tableInfo.some(col => col.column_name === 'exit_time')
+        : tableInfo.some(col => col.name === 'exit_time'),
+      has_mistake_corrected: isPostgres
+        ? tableInfo.some(col => col.column_name === 'mistake_corrected')
+        : tableInfo.some(col => col.name === 'mistake_corrected')
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Failed to check schema', 
+      details: error.message 
+    });
+  }
+});
+
+// Debug endpoint to test insert operation
+router.post('/debug-insert', authenticateToken, async (req, res) => {
+  try {
+    const database = await dbSingleton.getInstance();
+    
+    // Try to insert a minimal test record
+    const result = await database.run(
+      `INSERT INTO trades (
+        user_id, underlying, option_type, entry_price, exit_price, quantity, trade_date, followed_plan
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [req.userId, 'TEST', 'call', 100, 105, 1, '2024-01-01', true]
+    );
+    
+    // Clean up immediately
+    await database.run('DELETE FROM trades WHERE id = ?', [result.lastID]);
+    
+    res.json({ 
+      success: true, 
+      message: 'Test insert/delete successful',
+      test_id: result.lastID
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Test insert failed', 
+      details: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // Configure multer for file uploads
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -25,9 +99,7 @@ const upload = multer({
 
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     const {
       underlying,
@@ -49,6 +121,11 @@ router.post('/', authenticateToken, async (req, res) => {
       notes,
       screenshot_url
     } = req.body;
+    
+    console.log('Received trade data:', {
+      underlying, option_type, trade_date, entry_price, exit_price, 
+      quantity, mistake_corrected, entry_time, exit_time
+    });
     
     const metrics = calculateMetrics({
       entry_price,
@@ -80,16 +157,20 @@ router.post('/', authenticateToken, async (req, res) => {
     
     res.json({ id: result.lastID, ...metrics });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to save trade' });
+    console.error('Failed to save trade - Full error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to save trade', 
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     const { page = 1, pageSize = 20, timeFilter = 'all', mistakeFilter = '' } = req.query;
     const offset = (page - 1) * pageSize;
@@ -151,9 +232,7 @@ router.get('/', authenticateToken, async (req, res) => {
 // Export trades to Excel - MUST be before /:id route
 router.get('/export', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     const trades = await database.all(
       'SELECT * FROM trades WHERE user_id = ? ORDER BY trade_date DESC, created_at DESC',
@@ -212,9 +291,7 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     // Parse Excel file
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
@@ -304,9 +381,7 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
 
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     const trade = await database.get(
       'SELECT * FROM trades WHERE id = ? AND user_id = ?',
@@ -325,9 +400,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
-    const db = new Database();
-    await db.init();
-    const database = db.getDb();
+    const database = await dbSingleton.getInstance();
     
     const {
       underlying,
