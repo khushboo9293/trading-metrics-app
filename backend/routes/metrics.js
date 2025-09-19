@@ -657,6 +657,59 @@ router.get('/plan-deviation-analysis', authenticateToken, async (req, res) => {
 });
 
 // Populate default tags
+// Initialize default tags on startup
+router.get('/init-tags', async (req, res) => {
+  try {
+    const database = await dbSingleton.getInstance();
+    await initializeDefaultTags(database);
+    res.json({ message: 'Tags initialized successfully' });
+  } catch (error) {
+    console.error('Error initializing tags:', error);
+    res.status(500).json({ error: 'Failed to initialize tags' });
+  }
+});
+
+async function initializeDefaultTags(database) {
+  const defaultTags = [
+    { tag_name: 'fomo-entry', category: 'entry', description: 'Fear of missing out entry' },
+    { tag_name: 'impulse-entry', category: 'entry', description: 'Impulsive entry without setup' },
+    { tag_name: 'early-exit', category: 'exit', description: 'Exited too early' },
+    { tag_name: 'late-exit', category: 'exit', description: 'Exited too late' },
+    { tag_name: 'no-stop-loss', category: 'exit', description: 'No stop loss set' },
+    { tag_name: 'moved-stop-loss', category: 'exit', description: 'Moved stop loss' },
+    { tag_name: 'poor-position-size', category: 'position', description: 'Position size too large/small' },
+    { tag_name: 'averaging-down', category: 'position', description: 'Averaged down incorrectly' },
+    { tag_name: 'fear-driven', category: 'psychology', description: 'Decision driven by fear' },
+    { tag_name: 'greed-driven', category: 'psychology', description: 'Decision driven by greed' },
+    { tag_name: 'revenge-trade', category: 'psychology', description: 'Trading to recover losses' },
+    { tag_name: 'overconfident', category: 'psychology', description: 'Overconfidence in trade' },
+    { tag_name: 'ignored-plan', category: 'plan', description: 'Ignored trading plan' },
+    { tag_name: 'no-plan', category: 'plan', description: 'No plan for trade' },
+    { tag_name: 'poor-risk-reward', category: 'risk', description: 'Poor risk/reward ratio' }
+  ];
+  
+  for (const tag of defaultTags) {
+    try {
+      if (process.env.DATABASE_URL) {
+        // PostgreSQL
+        await database.run(
+          'INSERT INTO mistake_tags (tag_name, category, description) VALUES (?, ?, ?) ON CONFLICT (tag_name) DO NOTHING',
+          [tag.tag_name, tag.category, tag.description]
+        );
+      } else {
+        // SQLite
+        await database.run(
+          'INSERT OR IGNORE INTO mistake_tags (tag_name, category, description) VALUES (?, ?, ?)',
+          [tag.tag_name, tag.category, tag.description]
+        );
+      }
+    } catch (err) {
+      // Ignore errors
+    }
+  }
+  console.log('Default mistake tags initialized');
+}
+
 router.post('/populate-tags', authenticateToken, async (req, res) => {
   try {
     const database = await dbSingleton.getInstance();
@@ -737,8 +790,54 @@ router.get('/tags', authenticateToken, async (req, res) => {
   try {
     const database = await dbSingleton.getInstance();
     
-    const tags = await database.all('SELECT * FROM mistake_tags ORDER BY tag_name ASC');
-    res.json(tags);
+    // Get predefined tags
+    const predefinedTags = await database.all('SELECT * FROM mistake_tags ORDER BY tag_name ASC');
+    
+    // Also get unique tags actually used in trades
+    const usedTagsResult = await database.all(
+      `SELECT DISTINCT mistakes FROM trades 
+       WHERE user_id = ? AND mistakes IS NOT NULL AND mistakes != ''`,
+      [req.userId]
+    );
+    
+    // Parse the used tags (they're stored as comma-separated strings)
+    const usedTags = new Set();
+    usedTagsResult.forEach(row => {
+      if (row.mistakes) {
+        row.mistakes.split(',').forEach(tag => {
+          const trimmed = tag.trim();
+          if (trimmed) {
+            usedTags.add(trimmed);
+          }
+        });
+      }
+    });
+    
+    // Combine predefined tags with used tags
+    const tagMap = new Map();
+    
+    // Add predefined tags
+    predefinedTags.forEach(tag => {
+      tagMap.set(tag.tag_name, tag);
+    });
+    
+    // Add used tags that aren't already in predefined
+    usedTags.forEach(tagName => {
+      if (!tagMap.has(tagName)) {
+        tagMap.set(tagName, {
+          tag_name: tagName,
+          category: 'custom',
+          description: 'User-created tag'
+        });
+      }
+    });
+    
+    const allTags = Array.from(tagMap.values()).sort((a, b) => 
+      a.tag_name.localeCompare(b.tag_name)
+    );
+    
+    console.log(`Returning ${allTags.length} tags (${predefinedTags.length} predefined, ${usedTags.size} from trades)`);
+    res.json(allTags);
   } catch (error) {
     console.error('Error fetching tags:', error);
     res.status(500).json({ error: 'Failed to fetch tags' });
