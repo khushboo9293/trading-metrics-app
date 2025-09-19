@@ -124,8 +124,48 @@ class PostgresDatabase {
       await client.query('CREATE INDEX IF NOT EXISTS idx_insights_user ON insights(user_id)');
       
       console.log('PostgreSQL tables created successfully');
+      
+      // Run migrations
+      await this.runMigrations(client);
     } finally {
       client.release();
+    }
+  }
+
+  async runMigrations(client) {
+    try {
+      console.log('Running PostgreSQL migrations...');
+      
+      // Check what columns exist
+      const result = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'trades' AND table_schema = 'public'
+      `);
+      
+      const existingColumns = result.rows.map(row => row.column_name);
+      console.log('Existing columns:', existingColumns);
+      
+      // Add missing columns
+      const requiredColumns = [
+        { name: 'entry_time', type: 'TEXT' },
+        { name: 'exit_time', type: 'TEXT' },
+        { name: 'mistake_corrected', type: 'BOOLEAN DEFAULT FALSE' }
+      ];
+      
+      for (const column of requiredColumns) {
+        if (!existingColumns.includes(column.name)) {
+          console.log(`Adding missing column: ${column.name}`);
+          await client.query(`ALTER TABLE trades ADD COLUMN ${column.name} ${column.type}`);
+          console.log(`✅ Added ${column.name} column to trades table`);
+        } else {
+          console.log(`✓ Column ${column.name} already exists`);
+        }
+      }
+      
+      console.log('PostgreSQL migrations completed');
+    } catch (error) {
+      console.error('Error during PostgreSQL migrations:', error);
     }
   }
 
