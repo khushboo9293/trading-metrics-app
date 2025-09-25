@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Card, Form, Input, Select, Button, DatePicker, InputNumber, Typography, Space, Alert, Spin, Tag, TimePicker, Checkbox } from 'antd';
-import { SaveOutlined, ArrowLeftOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { Card, Form, Input, Select, Button, DatePicker, InputNumber, Typography, Space, Alert, Spin, Tag, TimePicker, Checkbox, Modal } from 'antd';
+import { SaveOutlined, ArrowLeftOutlined, QuestionCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import api from '../services/api';
 import EntryEmotionalStatesGuide from '../guides/EntryEmotionalStates';
@@ -16,6 +16,7 @@ const EditTrade = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState('');
   const [mistakeTags, setMistakeTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
@@ -24,6 +25,8 @@ const EditTrade = () => {
   const [selectedExitEmotions, setSelectedExitEmotions] = useState([]);
   const [entryGuideVisible, setEntryGuideVisible] = useState(false);
   const [exitGuideVisible, setExitGuideVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [tradeData, setTradeData] = useState(null);
 
   useEffect(() => {
     fetchTrade();
@@ -76,6 +79,7 @@ const EditTrade = () => {
     try {
       const response = await api.get(`/trades/${id}`);
       const trade = response.data;
+      setTradeData(trade); // Store trade data for delete confirmation
       form.setFieldsValue({
         underlying: trade.underlying || '',
         option_type: trade.option_type || 'call',
@@ -133,6 +137,21 @@ const EditTrade = () => {
       setError(err.response?.data?.error || 'Failed to update trade');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleteLoading(true);
+    setError('');
+
+    try {
+      await api.delete(`/trades/${id}`);
+      navigate('/trades');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to delete trade');
+      setDeleteModalVisible(false);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -490,6 +509,14 @@ const EditTrade = () => {
                 Cancel
               </Button>
               <Button 
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => setDeleteModalVisible(true)}
+                block={window.innerWidth < 768}
+              >
+                Delete Trade
+              </Button>
+              <Button 
                 type="primary" 
                 htmlType="submit" 
                 loading={loading}
@@ -513,6 +540,55 @@ const EditTrade = () => {
         visible={exitGuideVisible}
         onClose={() => setExitGuideVisible(false)}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        title="Delete Trade"
+        open={deleteModalVisible}
+        onCancel={() => setDeleteModalVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setDeleteModalVisible(false)}>
+            Cancel
+          </Button>,
+          <Button 
+            key="delete" 
+            danger 
+            type="primary"
+            loading={deleteLoading}
+            onClick={handleDelete}
+            icon={<DeleteOutlined />}
+          >
+            {deleteLoading ? 'Deleting...' : 'Delete Trade'}
+          </Button>
+        ]}
+      >
+        <div style={{ marginBottom: '16px' }}>
+          <Alert
+            message="Are you sure you want to delete this trade?"
+            description="This action cannot be undone. All trade data will be permanently removed."
+            type="warning"
+            showIcon
+          />
+        </div>
+        
+        {tradeData && (
+          <div style={{ marginTop: '16px' }}>
+            <Typography.Text strong>Trade Details:</Typography.Text>
+            <div style={{ margin: '8px 0', padding: '12px', backgroundColor: '#fafafa', borderRadius: '6px' }}>
+              <div><strong>Date:</strong> {tradeData.trade_date}</div>
+              <div><strong>Underlying:</strong> {tradeData.underlying}</div>
+              <div><strong>Type:</strong> {tradeData.option_type}</div>
+              <div><strong>Entry:</strong> ₹{tradeData.entry_price} → <strong>Exit:</strong> ₹{tradeData.exit_price}</div>
+              <div style={{ 
+                color: tradeData.pnl >= 0 ? '#52c41a' : '#ff4d4f',
+                fontWeight: 'bold'
+              }}>
+                <strong>P&L:</strong> {tradeData.pnl >= 0 ? '+' : ''}₹{tradeData.pnl}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </Space>
   );
 };

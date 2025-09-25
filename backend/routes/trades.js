@@ -475,6 +475,49 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const database = await dbSingleton.getInstance();
+    
+    // Check if trade exists and belongs to user
+    const existingTrade = await database.get(
+      'SELECT * FROM trades WHERE id = ? AND user_id = ?',
+      [req.params.id, req.userId]
+    );
+    
+    if (!existingTrade) {
+      return res.status(404).json({ error: 'Trade not found' });
+    }
+    
+    // Delete the trade
+    await database.run(
+      'DELETE FROM trades WHERE id = ? AND user_id = ?',
+      [req.params.id, req.userId]
+    );
+    
+    // Update daily metrics for the trade date after deletion
+    await updateDailyMetrics(database, req.userId, existingTrade.trade_date);
+    
+    // Clear cache for this user since data has changed
+    summaryCache.clearUser(req.userId);
+    trendCache.clearUser(req.userId);
+    
+    res.json({ 
+      success: true, 
+      message: 'Trade deleted successfully',
+      deletedTrade: {
+        id: req.params.id,
+        underlying: existingTrade.underlying,
+        trade_date: existingTrade.trade_date,
+        pnl: existingTrade.pnl
+      }
+    });
+  } catch (error) {
+    console.error('Error deleting trade:', error);
+    res.status(500).json({ error: 'Failed to delete trade' });
+  }
+});
+
 async function updateDailyMetrics(database, userId, tradeDate) {
   const trades = await database.all(
     'SELECT * FROM trades WHERE user_id = ? AND trade_date = ?',
